@@ -1,0 +1,27 @@
+name = "cloudflare-uptime"
+main = "src/worker.ts"
+compatibility_date = "2024-12-01"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = true
+
+# Optional: add custom domain routes for your status pages.
+# Uncomment and repeat for each domain you want to serve.
+# routes = [
+#   { pattern = "status.yourdomain.com", custom_domain = true },
+# ]
+
+[[r2_buckets]]
+binding = "ASSETS"
+bucket_name = "uptime-assets"
+
+# After running `wrangler d1 create uptime-monitor`, paste the database_id here
+[[d1_databases]]
+binding = "DB"
+database_name = "uptime-monitor"
+database_id = "YOUR_D1_DATABASE_ID"
+
+# Runs the check loop every minute
+[triggers]
+crons = ["* * * * *"]
+
+# Set your API key as a secret:  wrangler secret put API_KEY
