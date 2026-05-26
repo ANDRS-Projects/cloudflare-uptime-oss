@@ -38,7 +38,7 @@ Self-hosted uptime monitoring on Cloudflare Workers with public status pages —
 - **Maintenance notices** — create notices that appear on status pages; resolved notices stay visible for 24 hours with a "Resolved" badge
 - **Cron-based checks** — Cloudflare cron triggers run the check loop on your configured schedule
 - **R2 asset storage** — logo uploads stored in and served from Cloudflare R2
-- **CI/CD via GitHub Actions** — push to `main` deploys automatically with `CLOUDFLARE_API_TOKEN`
+- **CI/CD via GitHub Actions** — add `CLOUDFLARE_API_TOKEN` as a repo secret and trigger deploys manually (or change the workflow trigger to auto-deploy on push)
 - **Security scanning** — Trivy (dependency CVEs) and Gitleaks (secret detection) run on every push
 
 ---
@@ -164,7 +164,17 @@ Then redeploy with `npm run deploy`. The domain must already be on Cloudflare DN
 
 ### 9. (Optional) Set up CI/CD
 
-Add your Cloudflare API token as a GitHub Actions secret named `CLOUDFLARE_API_TOKEN`. Every push to `main` will then deploy automatically via `.github/workflows/deploy.yml`.
+Add your Cloudflare API token as a GitHub Actions secret named `CLOUDFLARE_API_TOKEN`.
+
+The included `.github/workflows/deploy.yml` is set to **manual trigger** by default (`workflow_dispatch`) so it won't fail on forks before secrets are configured. To enable auto-deploy on every push to `main`, change the `on:` trigger in the workflow file to:
+
+```yaml
+on:
+  push:
+    branches: [main]
+```
+
+Then trigger a deploy from the **Actions** tab → **Deploy** → **Run workflow**.
 
 ---
 
