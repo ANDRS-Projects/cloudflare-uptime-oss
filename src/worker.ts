@@ -21,11 +21,11 @@ app.use('*', async (c, next) => {
   if (!url.hostname.endsWith('.workers.dev')) {
     if (url.pathname === '/') {
       const page = await db.getStatusPageByDomain(c.env.DB, url.hostname);
-      if (page) return c.html(renderStatusPage(page.slug));
+      if (page) return c.html(renderStatusPage(page.slug, true));
     }
     if (url.pathname === '/history') {
       const page = await db.getStatusPageByDomain(c.env.DB, url.hostname);
-      if (page) return c.html(renderHistoryPage(page.slug));
+      if (page) return c.html(renderHistoryPage(page.slug, true));
     }
   }
   return next();
