@@ -17,8 +17,12 @@ export function renderHistoryPage(slug: string): string {
     .window-label{font-size:.8rem;color:#94a3b8;margin-top:.35rem}
     .sec-label{font-size:.72rem;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em;margin-bottom:.75rem;margin-top:2rem}
     .month-group{margin-bottom:1.5rem}
-    .month-hdr{font-size:.8rem;font-weight:600;color:#64748b;padding:.4rem 0;margin-bottom:.5rem;display:flex;align-items:center;gap:.75rem}
+    .month-hdr{font-size:.8rem;font-weight:600;color:#64748b;padding:.4rem 0;margin-bottom:.5rem;display:flex;align-items:center;gap:.75rem;cursor:pointer;user-select:none}
+    .month-hdr:hover{color:#374151}
     .month-hdr::after{content:'';flex:1;height:1px;background:#e2e8f0}
+    .chevron{display:inline-block;font-size:.65rem;color:#94a3b8;transition:transform .2s;order:1;margin-left:-.25rem}
+    .month-group.collapsed .chevron{transform:rotate(-90deg)}
+    .month-group.collapsed .month-body{display:none}
     .iitem{display:flex;justify-content:space-between;align-items:flex-start;padding:.875rem 1.25rem;background:white;border-radius:8px;border:1px solid #e2e8f0;margin-bottom:.5rem}
     .iheader{display:flex;align-items:center;flex-wrap:wrap;gap:.5rem}
     .iname{font-size:.875rem;font-weight:500;color:#0f172a}
@@ -93,6 +97,10 @@ export function renderHistoryPage(slug: string): string {
     return '';
   }
 
+  function toggleMonth(hdr) {
+    hdr.closest('.month-group').classList.toggle('collapsed');
+  }
+
   async function load() {
     try {
       const res = await fetch('/status/' + SLUG + '/history/data');
@@ -143,7 +151,12 @@ export function renderHistoryPage(slug: string): string {
             '<div class="itime">' + fmtDate(i.started_at) + '</div>' +
             '</div>';
         }).join('');
-        html += '<div class="month-group"><div class="month-hdr">' + monthLabel(k) + '</div>' + items + '</div>';
+        html += '<div class="month-group">' +
+          '<div class="month-hdr" onclick="toggleMonth(this)">' +
+          monthLabel(k) + ' <span class="chevron">&#9660;</span>' +
+          '</div>' +
+          '<div class="month-body">' + items + '</div>' +
+          '</div>';
       });
     }
 
