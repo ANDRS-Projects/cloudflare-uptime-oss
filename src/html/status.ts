@@ -162,17 +162,30 @@ export function renderStatusPage(slug: string): string {
       (m.incidents || []).map(i => ({ ...i, monitor_name: m.name }))
     ).sort((a, b) => b.started_at - a.started_at).slice(0, 10);
 
+    const HTTP_DESC = {
+      400:'Bad request',401:'Unauthorized',403:'Forbidden',404:'Not found',
+      408:'Request timeout',429:'Too many requests',499:'Client closed request',
+      500:'Internal server error',502:'Bad gateway',503:'Service unavailable',
+      504:'Gateway timeout',521:'Web server down',522:'Connection timed out',
+      523:'Origin unreachable',524:'Request timed out',525:'SSL handshake failed',
+      526:'Invalid SSL certificate',530:'DNS error',
+    };
+
     const incidents = allIncidents.length ? allIncidents.map(i => {
       const d = i.resolved_at ? 'Lasted ' + dur(i.resolved_at - i.started_at) : '<span class="ongoing">Ongoing</span>';
-      const badge = i.trigger_status_code
-        ? '<span style="background:#fee2e2;color:#991b1b;font-size:.7rem;padding:.15rem .45rem;border-radius:4px;font-weight:500;margin-left:.5rem">HTTP&nbsp;' + i.trigger_status_code + '</span>'
-        : (i.trigger_error ? '<span style="background:#f1f5f9;color:#64748b;font-size:.7rem;padding:.15rem .45rem;border-radius:4px;margin-left:.5rem">Timeout</span>' : '');
-      const errDetail = i.trigger_error && !/timeout|timed?\s*out/i.test(i.trigger_error)
-        ? '<span style="color:#94a3b8;font-size:.75rem;margin-left:.35rem">' + esc(i.trigger_error.slice(0, 80)) + '</span>'
-        : '';
+      let reason = '';
+      if (i.trigger_status_code) {
+        const desc = HTTP_DESC[i.trigger_status_code];
+        reason = '<span style="background:#fee2e2;color:#991b1b;font-size:.7rem;padding:.15rem .45rem;border-radius:4px;font-weight:500;margin-left:.5rem">HTTP&nbsp;' + i.trigger_status_code + '</span>' +
+          (desc ? '<span style="color:#94a3b8;font-size:.75rem;margin-left:.35rem">' + desc + '</span>' : '');
+      } else if (i.trigger_error) {
+        const isTimeout = /timeout|timed?\s*out/i.test(i.trigger_error);
+        reason = '<span style="background:#f1f5f9;color:#64748b;font-size:.7rem;padding:.15rem .45rem;border-radius:4px;margin-left:.5rem">' + (isTimeout ? 'Timeout' : 'Error') + '</span>' +
+          (!isTimeout ? '<span style="color:#94a3b8;font-size:.75rem;margin-left:.35rem">' + esc(i.trigger_error.slice(0, 80)) + '</span>' : '');
+      }
       return '<div class="iitem">' +
-        '<div><div class="iname">' + esc(i.monitor_name) + ' was down' + badge + '</div>' +
-        '<div class="idur">' + d + errDetail + '</div></div>' +
+        '<div><div class="iname">' + esc(i.monitor_name) + ' was down' + reason + '</div>' +
+        '<div class="idur">' + d + '</div></div>' +
         '<div class="itime">' + ago(i.started_at) + '</div>' +
         '</div>';
     }).join('') : '<div style="color:#94a3b8;font-size:.875rem;padding:.5rem 0">No incidents recorded.</div>';
