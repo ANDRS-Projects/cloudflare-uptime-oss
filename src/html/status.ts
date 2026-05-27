@@ -50,6 +50,7 @@ export function renderStatusPage(slug: string): string {
     .incidents-sec{margin-top:2.5rem}
     .iitem{display:flex;justify-content:space-between;align-items:flex-start;padding:.875rem 1.25rem;background:white;border-radius:8px;border:1px solid #e2e8f0;margin-bottom:.5rem}
     .iname{font-size:.875rem;font-weight:500;color:#0f172a}
+    .ireason{display:flex;align-items:center;gap:.35rem;flex-wrap:wrap;margin-top:.2rem}
     .idur{font-size:.8rem;color:#64748b;margin-top:.2rem}
     .itime{font-size:.8rem;color:#94a3b8;white-space:nowrap}
     .ongoing{color:#dc2626;font-weight:500}
@@ -176,16 +177,19 @@ export function renderStatusPage(slug: string): string {
       let reason = '';
       if (i.trigger_status_code) {
         const desc = HTTP_DESC[i.trigger_status_code];
-        reason = '<span style="background:#fee2e2;color:#991b1b;font-size:.7rem;padding:.15rem .45rem;border-radius:4px;font-weight:500;margin-left:.5rem">HTTP&nbsp;' + i.trigger_status_code + '</span>' +
-          (desc ? '<span style="color:#94a3b8;font-size:.75rem;margin-left:.35rem">' + desc + '</span>' : '');
+        reason = '<span style="background:#fee2e2;color:#991b1b;font-size:.7rem;padding:.15rem .45rem;border-radius:4px;font-weight:500">HTTP&nbsp;' + i.trigger_status_code + '</span>' +
+          (desc ? '<span style="color:#64748b;font-size:.8rem">' + desc + '</span>' : '');
       } else if (i.trigger_error) {
         const isTimeout = /timeout|timed?\s*out/i.test(i.trigger_error);
-        reason = '<span style="background:#f1f5f9;color:#64748b;font-size:.7rem;padding:.15rem .45rem;border-radius:4px;margin-left:.5rem">' + (isTimeout ? 'Timeout' : 'Error') + '</span>' +
-          (!isTimeout ? '<span style="color:#94a3b8;font-size:.75rem;margin-left:.35rem">' + esc(i.trigger_error.slice(0, 80)) + '</span>' : '');
+        reason = '<span style="background:#f1f5f9;color:#64748b;font-size:.7rem;padding:.15rem .45rem;border-radius:4px">' + (isTimeout ? 'Timeout' : 'Error') + '</span>' +
+          (!isTimeout ? '<span style="color:#64748b;font-size:.8rem">' + esc(i.trigger_error.slice(0, 80)) + '</span>' : '');
       }
       return '<div class="iitem">' +
-        '<div><div class="iname">' + esc(i.monitor_name) + ' was down' + reason + '</div>' +
-        '<div class="idur">' + d + '</div></div>' +
+        '<div>' +
+        '<div class="iname">' + esc(i.monitor_name) + ' was down</div>' +
+        (reason ? '<div class="ireason">' + reason + '</div>' : '') +
+        '<div class="idur">' + d + '</div>' +
+        '</div>' +
         '<div class="itime">' + ago(i.started_at) + '</div>' +
         '</div>';
     }).join('') : '<div style="color:#94a3b8;font-size:.875rem;padding:.5rem 0">No incidents recorded.</div>';
