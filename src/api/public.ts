@@ -2,6 +2,17 @@ import type { Context } from 'hono';
 import type { Env, Check } from '../types';
 import * as db from '../db';
 
+export async function getPublicIncidentHistory(c: Context<{ Bindings: Env }>) {
+  const slug = c.req.param('slug');
+  const page = await db.getStatusPage(c.env.DB, slug);
+  if (!page) return c.notFound();
+
+  const days = page.incident_history_days ?? 30;
+  const incidents = await db.getIncidentHistory(c.env.DB, page.id, days);
+
+  return c.json({ page, incidents, window_days: days, generated_at: Date.now() });
+}
+
 export async function getPublicStatusPage(c: Context<{ Bindings: Env }>) {
   const slug = c.req.param('slug');
   const page = await db.getStatusPage(c.env.DB, slug);

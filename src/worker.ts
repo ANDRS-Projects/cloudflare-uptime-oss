@@ -6,20 +6,27 @@ import * as monitorsApi from './api/monitors';
 import * as pagesApi from './api/pages';
 import * as noticesApi from './api/notices';
 import { uploadLogo, deleteLogo } from './api/upload';
-import { getPublicStatusPage } from './api/public';
+import { getPublicStatusPage, getPublicIncidentHistory } from './api/public';
 import { getStatusPageRSS } from './api/rss';
 import { runCronJob } from './cron';
 import { renderAdmin } from './html/admin';
 import { renderStatusPage } from './html/status';
+import { renderHistoryPage } from './html/history';
 
 const app = new Hono<{ Bindings: Env }>();
 
 // ── Custom domain routing ────────────────────────────────────────────────────
 app.use('*', async (c, next) => {
   const url = new URL(c.req.url);
-  if (!url.hostname.endsWith('.workers.dev') && url.pathname === '/') {
-    const page = await db.getStatusPageByDomain(c.env.DB, url.hostname);
-    if (page) return c.html(renderStatusPage(page.slug));
+  if (!url.hostname.endsWith('.workers.dev')) {
+    if (url.pathname === '/') {
+      const page = await db.getStatusPageByDomain(c.env.DB, url.hostname);
+      if (page) return c.html(renderStatusPage(page.slug));
+    }
+    if (url.pathname === '/history') {
+      const page = await db.getStatusPageByDomain(c.env.DB, url.hostname);
+      if (page) return c.html(renderHistoryPage(page.slug));
+    }
   }
   return next();
 });
@@ -74,6 +81,8 @@ app.get('/assets/*', async (c) => {
 });
 
 app.get('/status/:slug/data', getPublicStatusPage);
+app.get('/status/:slug/history/data', getPublicIncidentHistory);
+app.get('/status/:slug/history', (c) => c.html(renderHistoryPage(c.req.param('slug'))));
 app.get('/status/:slug/rss', getStatusPageRSS);
 app.get('/status/:slug', (c) => c.html(renderStatusPage(c.req.param('slug'))));
 app.get('/', (c) => c.html(renderAdmin()));

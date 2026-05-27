@@ -30,7 +30,7 @@ export async function createPage(c: Context<{ Bindings: Env }>) {
 export async function updatePage(c: Context<{ Bindings: Env }>) {
   const id = c.req.param('id');
   const body = await c.req.json<Record<string, unknown>>();
-  const allowed = ['name', 'slug', 'description', 'custom_domain', 'logo_url'];
+  const allowed = ['name', 'slug', 'description', 'custom_domain', 'logo_url', 'incident_history_days'];
   const updates = Object.fromEntries(
     Object.entries(body).filter(([k]) => allowed.includes(k))
   );

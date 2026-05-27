@@ -221,7 +221,7 @@ export function renderStatusPage(slug: string): string {
       noticeHtml +
       '<div class="overall ' + ovClass + '">' + ovIcon + '&nbsp;' + ovText + '</div>' +
       '<div style="margin-bottom:2rem"><div class="sec-label">Services</div>' + items + '</div>' +
-      '<div class="incidents-sec"><div class="sec-label">Past Incidents</div>' + incidents + '</div>' +
+      '<div class="incidents-sec"><div class="sec-label" style="display:flex;justify-content:space-between;align-items:center">Past Incidents<a href="/status/${slug}/history" style="font-size:.75rem;color:#94a3b8;text-decoration:none;font-weight:400;text-transform:none;letter-spacing:0">View full history &rarr;</a></div>' + incidents + '</div>' +
       '<div class="footer">Last updated ' + new Date(data.generated_at).toUTCString() + ' &nbsp;&middot;&nbsp; <a href="/status/${slug}/rss" style="color:#94a3b8;text-decoration:none" title="Subscribe via RSS">RSS feed</a></div>';
   }
 
