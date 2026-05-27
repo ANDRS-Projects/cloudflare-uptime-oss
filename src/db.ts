@@ -89,14 +89,16 @@ export async function getIncidents(
   const r = await db
     .prepare(`
       SELECT i.*,
-        (SELECT c.status_code FROM checks c
-         WHERE c.monitor_id = i.monitor_id AND c.ok = 0
-         AND c.checked_at >= i.started_at - 120 AND c.checked_at <= i.started_at + 120
-         ORDER BY c.checked_at ASC LIMIT 1) AS trigger_status_code,
-        (SELECT c.error FROM checks c
-         WHERE c.monitor_id = i.monitor_id AND c.ok = 0
-         AND c.checked_at >= i.started_at - 120 AND c.checked_at <= i.started_at + 120
-         ORDER BY c.checked_at ASC LIMIT 1) AS trigger_error
+        COALESCE(i.trigger_status_code,
+          (SELECT c.status_code FROM checks c
+           WHERE c.monitor_id = i.monitor_id AND c.ok = 0
+           AND c.checked_at >= i.started_at - 120 AND c.checked_at <= i.started_at + 120
+           ORDER BY c.checked_at ASC LIMIT 1)) AS trigger_status_code,
+        COALESCE(i.trigger_error,
+          (SELECT c.error FROM checks c
+           WHERE c.monitor_id = i.monitor_id AND c.ok = 0
+           AND c.checked_at >= i.started_at - 120 AND c.checked_at <= i.started_at + 120
+           ORDER BY c.checked_at ASC LIMIT 1)) AS trigger_error
       FROM incidents i WHERE i.monitor_id = ? ORDER BY i.started_at DESC LIMIT ?
     `)
     .bind(monitorId, limit)
@@ -104,10 +106,17 @@ export async function getIncidents(
   return r.results;
 }
 
-export async function createIncident(db: D1Database, monitorId: string): Promise<void> {
+export async function createIncident(
+  db: D1Database,
+  monitorId: string,
+  triggerStatusCode: number | null,
+  triggerError: string | null
+): Promise<void> {
   await db
-    .prepare('INSERT INTO incidents (monitor_id, started_at) VALUES (?, ?)')
-    .bind(monitorId, Math.floor(Date.now() / 1000))
+    .prepare(
+      'INSERT INTO incidents (monitor_id, started_at, trigger_status_code, trigger_error) VALUES (?, ?, ?, ?)'
+    )
+    .bind(monitorId, Math.floor(Date.now() / 1000), triggerStatusCode || null, triggerError)
     .run();
 }
 

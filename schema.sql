@@ -25,7 +25,9 @@ CREATE TABLE IF NOT EXISTS incidents (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   monitor_id TEXT NOT NULL REFERENCES monitors(id) ON DELETE CASCADE,
   started_at INTEGER NOT NULL,
-  resolved_at INTEGER
+  resolved_at INTEGER,
+  trigger_status_code INTEGER,
+  trigger_error TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_incidents_monitor ON incidents(monitor_id, started_at DESC);
