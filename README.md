@@ -29,7 +29,8 @@ Self-hosted uptime monitoring on Cloudflare Workers with public status pages —
 - **Multi-monitor support** — track any HTTP endpoint with configurable check intervals and timeouts
 - **Public status pages** — shareable `/status/:slug` pages with live up/down status per monitor
 - **90-day latency history** — sparkline graph built from the rolling check history
-- **Incident timeline** — timestamped incidents with the triggering HTTP status code or error message
+- **Incident timeline** — timestamped incidents with human-readable failure reasons (HTTP status badge + description, timeout label, or raw error)
+- **Incident history page** — `/status/:slug/history` lists all incidents grouped by month with collapsible sections; history window (30 or 90 days) is configurable per status page from the admin dashboard
 - **RSS feed** — `/status/:slug/rss` for incident subscribers
 - **Custom logo per page** — upload a logo to R2; served through the Worker with immutable cache headers
 - **Custom domain routing** — each status page can be served on its own domain via `wrangler.toml` routes
@@ -223,6 +224,12 @@ There is no traditional `.env` file — see `.env.example` for a full annotated 
 | `timeout_ms` | Request timeout in milliseconds (default: 10000) |
 | `alert_webhook` | Slack or Discord incoming webhook URL for up/down alerts |
 
+### Per-status-page settings (set via admin dashboard)
+
+| Field | Default | Description |
+|-------|---------|-------------|
+| `incident_history_days` | `30` | Number of days shown on the `/history` page — set to `30` or `90` |
+
 ---
 
 ## Development
@@ -252,6 +259,14 @@ Code style:
 `wrangler deploy` does not run `schema.sql`. Apply the schema manually with
 `npm run db:init:remote` on first deploy, and run `ALTER TABLE` statements
 via the Cloudflare D1 Console for any subsequent schema changes.
+
+**Upgrading from an earlier version** requires three manual `ALTER TABLE` statements in the D1 Console (safe to run on existing data — all columns have defaults):
+
+```sql
+ALTER TABLE incidents ADD COLUMN trigger_status_code INTEGER;
+ALTER TABLE incidents ADD COLUMN trigger_error TEXT;
+ALTER TABLE status_pages ADD COLUMN incident_history_days INTEGER NOT NULL DEFAULT 30;
+```
 
 **Custom domains require Cloudflare DNS.**
 `custom_domain = true` in `wrangler.toml` only works when the domain is proxied
