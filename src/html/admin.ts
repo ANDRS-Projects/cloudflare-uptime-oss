@@ -441,6 +441,12 @@ export function renderAdmin(): string {
     setCustomDomain(pages[pi].id, null);
   }
 
+  async function setHistoryDays(pageId, days) {
+    await api('/api/pages/' + pageId, { method: 'PUT', body: JSON.stringify({ incident_history_days: parseInt(days) }) });
+    toast('History window updated');
+    await loadPages();
+  }
+
   async function resolveNotice(noticeId, pageId) {
     await api('/api/pages/' + pageId + '/notices/' + noticeId + '/resolve', { method: 'PUT' });
     toast('Notice resolved');
@@ -507,6 +513,13 @@ export function renderAdmin(): string {
         '<button class="btn btn-ghost btn-sm" onclick="openNoticeModal(pages[' + pi + '].id)">+ Add Notice</button>' +
         '</div>' +
         noticeHtml +
+        '<div class="domain-row" style="border-top:1px solid #f1f5f9;margin-top:.5rem;padding-top:.625rem">' +
+        '<span style="font-size:.8rem;color:#64748b;flex:1">Incident history window</span>' +
+        '<select onchange="setHistoryDays(pages[' + pi + '].id,this.value)" style="padding:.3rem .5rem;border:1px solid #e2e8f0;border-radius:6px;font-size:.8rem;background:white;cursor:pointer">' +
+        '<option value="30"' + (p.incident_history_days === 30 ? ' selected' : '') + '>30 days</option>' +
+        '<option value="90"' + (p.incident_history_days === 90 ? ' selected' : '') + '>90 days</option>' +
+        '</select>' +
+        '</div>' +
         '</div>';
     }).join('');
     el.innerHTML = '<div class="pages-grid">' + cards + '</div>';

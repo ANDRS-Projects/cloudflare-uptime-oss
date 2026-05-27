@@ -49,9 +49,11 @@ export function renderStatusPage(slug: string): string {
     .lat{font-size:.8rem;color:#94a3b8}
     .incidents-sec{margin-top:2.5rem}
     .iitem{display:flex;justify-content:space-between;align-items:flex-start;padding:.875rem 1.25rem;background:white;border-radius:8px;border:1px solid #e2e8f0;margin-bottom:.5rem}
+    .iheader{display:flex;align-items:center;flex-wrap:wrap;gap:.5rem}
     .iname{font-size:.875rem;font-weight:500;color:#0f172a}
-    .ireason{display:flex;align-items:center;gap:.35rem;flex-wrap:wrap;margin-top:.2rem}
+    .ireason{display:flex;align-items:center;gap:.35rem;flex-wrap:wrap}
     .idur{font-size:.8rem;color:#64748b;margin-top:.2rem}
+    @media(max-width:520px){.iheader{display:block}.ireason{margin-top:.2rem}}
     .itime{font-size:.8rem;color:#94a3b8;white-space:nowrap}
     .ongoing{color:#dc2626;font-weight:500}
     .footer{margin-top:3rem;text-align:center;font-size:.75rem;color:#cbd5e1}
@@ -186,8 +188,10 @@ export function renderStatusPage(slug: string): string {
       }
       return '<div class="iitem">' +
         '<div>' +
+        '<div class="iheader">' +
         '<div class="iname">' + esc(i.monitor_name) + ' was down</div>' +
         (reason ? '<div class="ireason">' + reason + '</div>' : '') +
+        '</div>' +
         '<div class="idur">' + d + '</div>' +
         '</div>' +
         '<div class="itime">' + ago(i.started_at) + '</div>' +
@@ -217,7 +221,7 @@ export function renderStatusPage(slug: string): string {
       noticeHtml +
       '<div class="overall ' + ovClass + '">' + ovIcon + '&nbsp;' + ovText + '</div>' +
       '<div style="margin-bottom:2rem"><div class="sec-label">Services</div>' + items + '</div>' +
-      '<div class="incidents-sec"><div class="sec-label">Past Incidents</div>' + incidents + '</div>' +
+      '<div class="incidents-sec"><div class="sec-label" style="display:flex;justify-content:space-between;align-items:center">Past Incidents<a href="/status/${slug}/history" style="font-size:.75rem;color:#94a3b8;text-decoration:none;font-weight:400;text-transform:none;letter-spacing:0">View full history &rarr;</a></div>' + incidents + '</div>' +
       '<div class="footer">Last updated ' + new Date(data.generated_at).toUTCString() + ' &nbsp;&middot;&nbsp; <a href="/status/${slug}/rss" style="color:#94a3b8;text-decoration:none" title="Subscribe via RSS">RSS feed</a></div>';
   }
 

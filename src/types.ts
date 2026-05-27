@@ -41,7 +41,18 @@ export interface StatusPage {
   description: string | null;
   custom_domain: string | null;
   logo_url: string | null;
+  incident_history_days: number;
   created_at: number;
+}
+
+export interface IncidentHistoryItem {
+  id: number;
+  monitor_id: string;
+  monitor_name: string;
+  started_at: number;
+  resolved_at: number | null;
+  trigger_status_code: number | null;
+  trigger_error: string | null;
 }
 
 export interface Notice {

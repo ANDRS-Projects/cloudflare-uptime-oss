@@ -1,4 +1,4 @@
-import type { Monitor, Check, Incident, StatusPage, Notice, CheckResult } from './types';
+import type { Monitor, Check, Incident, StatusPage, Notice, CheckResult, IncidentHistoryItem } from './types';
 
 export async function getMonitors(db: D1Database): Promise<Monitor[]> {
   const r = await db.prepare('SELECT * FROM monitors ORDER BY created_at ASC').all<Monitor>();
@@ -125,6 +125,37 @@ export async function resolveIncident(db: D1Database, incidentId: number): Promi
     .prepare('UPDATE incidents SET resolved_at = ? WHERE id = ?')
     .bind(Math.floor(Date.now() / 1000), incidentId)
     .run();
+}
+
+export async function getIncidentHistory(
+  db: D1Database,
+  pageId: string,
+  days: number
+): Promise<IncidentHistoryItem[]> {
+  const since = Math.floor(Date.now() / 1000) - days * 86400;
+  const r = await db
+    .prepare(`
+      SELECT i.id, i.monitor_id, m.name AS monitor_name,
+        i.started_at, i.resolved_at,
+        COALESCE(i.trigger_status_code,
+          (SELECT c.status_code FROM checks c
+           WHERE c.monitor_id = i.monitor_id AND c.ok = 0
+           AND c.checked_at >= i.started_at - 120 AND c.checked_at <= i.started_at + 120
+           ORDER BY c.checked_at ASC LIMIT 1)) AS trigger_status_code,
+        COALESCE(i.trigger_error,
+          (SELECT c.error FROM checks c
+           WHERE c.monitor_id = i.monitor_id AND c.ok = 0
+           AND c.checked_at >= i.started_at - 120 AND c.checked_at <= i.started_at + 120
+           ORDER BY c.checked_at ASC LIMIT 1)) AS trigger_error
+      FROM incidents i
+      JOIN status_page_monitors spm ON spm.monitor_id = i.monitor_id
+      JOIN monitors m ON m.id = i.monitor_id
+      WHERE spm.status_page_id = ? AND i.started_at >= ?
+      ORDER BY i.started_at DESC
+    `)
+    .bind(pageId, since)
+    .all<IncidentHistoryItem>();
+  return r.results;
 }
 
 export async function getStatusPages(db: D1Database): Promise<StatusPage[]> {
