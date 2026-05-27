@@ -1,4 +1,5 @@
-export function renderHistoryPage(slug: string): string {
+export function renderHistoryPage(slug: string, isCustomDomain = false): string {
+  const statusHref = isCustomDomain ? '/' : `/status/${slug}`;
   return /* html */ `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -39,7 +40,7 @@ export function renderHistoryPage(slug: string): string {
 </head>
 <body>
 <div class="container">
-  <a href="/status/${slug}" class="back">&#8592; Back to status</a>
+  <a href="${statusHref}" class="back">&#8592; Back to status</a>
   <div id="root"><div class="loading">Loading&hellip;</div></div>
 </div>
 <script>
