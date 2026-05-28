@@ -150,35 +150,9 @@ export function renderHistoryPage(slug: string, isCustomDomain = false): string 
       '<div class="window-label">Incident &amp; notice history &mdash; past ' + window_days + ' days</div>' +
       '</div>';
 
-    // ── Incidents ─────────────────────────────────────────────────────────────
-    if (!incidents.length) {
-      html += '<div class="all-clear">&#9989;&nbsp; No incidents in the past ' + window_days + ' days</div>';
-    } else {
-      html += '<div class="sec-label">' + incidents.length + ' incident' + (incidents.length === 1 ? '' : 's') + '</div>';
-      html += renderMonthSection(
-        monthGroups(incidents, i => i.started_at),
-        i => {
-          const reason = reasonHtml(i);
-          const d = i.resolved_at
-            ? 'Lasted ' + dur(i.resolved_at - i.started_at)
-            : '<span class="ongoing">Ongoing</span>';
-          return '<div class="iitem">' +
-            '<div style="flex:1;min-width:0">' +
-            '<div class="iheader">' +
-            '<div class="iname">' + esc(i.monitor_name) + ' was down</div>' +
-            (reason ? '<div class="ireason">' + reason + '</div>' : '') +
-            '</div>' +
-            '<div class="idur">' + d + '</div>' +
-            '</div>' +
-            '<div class="itime">' + fmtDate(i.started_at) + '</div>' +
-            '</div>';
-        }
-      );
-    }
-
     // ── Notices ───────────────────────────────────────────────────────────────
     if (notices && notices.length) {
-      html += '<div class="sec-label" style="margin-top:2.5rem">' + notices.length + ' notice' + (notices.length === 1 ? '' : 's') + '</div>';
+      html += '<div class="sec-label">' + notices.length + ' notice' + (notices.length === 1 ? '' : 's') + '</div>';
       html += renderMonthSection(
         monthGroups(notices, n => n.created_at),
         n => {
@@ -196,6 +170,32 @@ export function renderHistoryPage(slug: string, isCustomDomain = false): string 
             '<div class="idur">' + status + '</div>' +
             '</div>' +
             '<div class="itime">' + fmtDate(n.created_at) + '</div>' +
+            '</div>';
+        }
+      );
+    }
+
+    // ── Incidents ─────────────────────────────────────────────────────────────
+    if (!incidents.length) {
+      html += '<div class="all-clear">&#9989;&nbsp; No incidents in the past ' + window_days + ' days</div>';
+    } else {
+      html += '<div class="sec-label" style="margin-top:2.5rem">' + incidents.length + ' incident' + (incidents.length === 1 ? '' : 's') + '</div>';
+      html += renderMonthSection(
+        monthGroups(incidents, i => i.started_at),
+        i => {
+          const reason = reasonHtml(i);
+          const d = i.resolved_at
+            ? 'Lasted ' + dur(i.resolved_at - i.started_at)
+            : '<span class="ongoing">Ongoing</span>';
+          return '<div class="iitem">' +
+            '<div style="flex:1;min-width:0">' +
+            '<div class="iheader">' +
+            '<div class="iname">' + esc(i.monitor_name) + ' was down</div>' +
+            (reason ? '<div class="ireason">' + reason + '</div>' : '') +
+            '</div>' +
+            '<div class="idur">' + d + '</div>' +
+            '</div>' +
+            '<div class="itime">' + fmtDate(i.started_at) + '</div>' +
             '</div>';
         }
       );
