@@ -8,9 +8,12 @@ export async function getPublicIncidentHistory(c: Context<{ Bindings: Env }>) {
   if (!page) return c.notFound();
 
   const days = page.incident_history_days ?? 30;
-  const incidents = await db.getIncidentHistory(c.env.DB, page.id, days);
+  const [incidents, notices] = await Promise.all([
+    db.getIncidentHistory(c.env.DB, page.id, days),
+    db.getNoticeHistory(c.env.DB, page.id, days),
+  ]);
 
-  return c.json({ page, incidents, window_days: days, generated_at: Date.now() });
+  return c.json({ page, incidents, notices, window_days: days, generated_at: Date.now() });
 }
 
 export async function getPublicStatusPage(c: Context<{ Bindings: Env }>) {

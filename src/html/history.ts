@@ -112,31 +112,52 @@ export function renderHistoryPage(slug: string, isCustomDomain = false): string 
     }
   }
 
-  function render(data) {
-    const { page, incidents, window_days } = data;
-    document.title = esc(page.name) + ' — Incident History';
+  const SEV_STYLE = {
+    info:     'background:#eff6ff;color:#1d4ed8',
+    warning:  'background:#fffbeb;color:#92400e',
+    critical: 'background:#fef2f2;color:#991b1b',
+  };
 
+  function monthGroups(items, keyFn) {
     const groups = {};
-    incidents.forEach(i => {
-      const k = monthKey(i.started_at);
+    items.forEach(x => {
+      const k = monthKey(keyFn(x));
       if (!groups[k]) groups[k] = [];
-      groups[k].push(i);
+      groups[k].push(x);
     });
-    const sortedKeys = Object.keys(groups).sort((a, b) => b.localeCompare(a));
+    return Object.keys(groups).sort((a, b) => b.localeCompare(a)).map(k => ({ k, items: groups[k] }));
+  }
+
+  function renderMonthSection(groupedItems, rowFn) {
+    return groupedItems.map(({ k, items }) =>
+      '<div class="month-group">' +
+      '<div class="month-hdr" onclick="toggleMonth(this)">' +
+      monthLabel(k) + ' <span class="chevron">&#9660;</span>' +
+      '</div>' +
+      '<div class="month-body">' + items.map(rowFn).join('') + '</div>' +
+      '</div>'
+    ).join('');
+  }
+
+  function render(data) {
+    const { page, incidents, notices, window_days } = data;
+    document.title = esc(page.name) + ' — History';
 
     let html = '<div class="hdr">' +
       (page.logo_url ? '<img src="' + esc(page.logo_url) + '" alt="' + esc(page.name) + '" style="height:48px;max-width:200px;object-fit:contain;display:block;margin-bottom:.75rem">' : '') +
       '<h1>' + esc(page.name) + '</h1>' +
       (page.description ? '<p>' + esc(page.description) + '</p>' : '') +
-      '<div class="window-label">Incident history &mdash; past ' + window_days + ' days</div>' +
+      '<div class="window-label">Incident &amp; notice history &mdash; past ' + window_days + ' days</div>' +
       '</div>';
 
+    // ── Incidents ─────────────────────────────────────────────────────────────
     if (!incidents.length) {
       html += '<div class="all-clear">&#9989;&nbsp; No incidents in the past ' + window_days + ' days</div>';
     } else {
       html += '<div class="sec-label">' + incidents.length + ' incident' + (incidents.length === 1 ? '' : 's') + '</div>';
-      sortedKeys.forEach(k => {
-        const items = groups[k].map(i => {
+      html += renderMonthSection(
+        monthGroups(incidents, i => i.started_at),
+        i => {
           const reason = reasonHtml(i);
           const d = i.resolved_at
             ? 'Lasted ' + dur(i.resolved_at - i.started_at)
@@ -151,14 +172,33 @@ export function renderHistoryPage(slug: string, isCustomDomain = false): string 
             '</div>' +
             '<div class="itime">' + fmtDate(i.started_at) + '</div>' +
             '</div>';
-        }).join('');
-        html += '<div class="month-group">' +
-          '<div class="month-hdr" onclick="toggleMonth(this)">' +
-          monthLabel(k) + ' <span class="chevron">&#9660;</span>' +
-          '</div>' +
-          '<div class="month-body">' + items + '</div>' +
-          '</div>';
-      });
+        }
+      );
+    }
+
+    // ── Notices ───────────────────────────────────────────────────────────────
+    if (notices && notices.length) {
+      html += '<div class="sec-label" style="margin-top:2.5rem">' + notices.length + ' notice' + (notices.length === 1 ? '' : 's') + '</div>';
+      html += renderMonthSection(
+        monthGroups(notices, n => n.created_at),
+        n => {
+          const style = SEV_STYLE[n.severity] || SEV_STYLE.info;
+          const badge = '<span style="' + style + ';font-size:.7rem;padding:.15rem .45rem;border-radius:4px;font-weight:500;text-transform:capitalize">' + esc(n.severity) + '</span>';
+          const status = n.resolved_at
+            ? 'Resolved after ' + dur(n.resolved_at - n.created_at)
+            : '<span class="ongoing">Still active</span>';
+          return '<div class="iitem">' +
+            '<div style="flex:1;min-width:0">' +
+            '<div class="iheader">' +
+            '<div class="iname">' + esc(n.message) + '</div>' +
+            '<div class="ireason">' + badge + '</div>' +
+            '</div>' +
+            '<div class="idur">' + status + '</div>' +
+            '</div>' +
+            '<div class="itime">' + fmtDate(n.created_at) + '</div>' +
+            '</div>';
+        }
+      );
     }
 
     html += '<div class="footer">Last updated ' + new Date(data.generated_at).toUTCString() + '</div>';
