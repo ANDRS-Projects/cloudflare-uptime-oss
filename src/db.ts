@@ -297,6 +297,15 @@ export async function getAllNotices(db: D1Database, pageId: string): Promise<Not
   return r.results;
 }
 
+export async function getNoticeHistory(db: D1Database, pageId: string, days: number): Promise<Notice[]> {
+  const since = Math.floor(Date.now() / 1000) - days * 86400;
+  const r = await db
+    .prepare('SELECT * FROM notices WHERE status_page_id = ? AND created_at >= ? ORDER BY created_at DESC')
+    .bind(pageId, since)
+    .all<Notice>();
+  return r.results;
+}
+
 export async function createNotice(
   db: D1Database,
   notice: Omit<Notice, 'created_at' | 'resolved_at'>

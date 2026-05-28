@@ -70,12 +70,14 @@ export function renderAdmin(): string {
     .domain-input:focus{border-color:#3b82f6}
     .notices-hdr{display:flex;justify-content:space-between;align-items:center;margin:.875rem 0 .4rem;border-top:1px solid #f1f5f9;padding-top:.875rem}
     .notices-label{font-size:.72rem;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:.05em}
-    .nitem{display:flex;justify-content:space-between;align-items:flex-start;padding:.5rem .625rem;border-radius:6px;margin-bottom:.35rem;font-size:.8rem;gap:.5rem}
+    .nitem{padding:.5rem .625rem;border-radius:6px;margin-bottom:.35rem;font-size:.8rem}
     .nitem-info{background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe}
     .nitem-warning{background:#fffbeb;color:#92400e;border:1px solid #fde68a}
     .nitem-critical{background:#fef2f2;color:#991b1b;border:1px solid #fecaca}
-    .nitem-msg{font-weight:500;line-height:1.4;flex:1}
-    .nitem-actions{display:flex;gap:.3rem;flex-shrink:0}
+    .nitem-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:.3rem}
+    .nitem-sev{font-size:.7rem;font-weight:600;text-transform:capitalize;opacity:.75}
+    .nitem-msg{font-weight:500;line-height:1.4}
+    .nitem-actions{display:flex;gap:.3rem}
     .fg textarea{width:100%;padding:.5rem .75rem;border:1px solid #d1d5db;border-radius:6px;font-size:.875rem;outline:none;transition:border .15s;resize:vertical;min-height:80px;font-family:inherit}
     .fg textarea:focus{border-color:#3b82f6}
     .toast{position:fixed;bottom:1.5rem;right:1.5rem;padding:.75rem 1.25rem;border-radius:8px;font-size:.875rem;font-weight:500;color:white;z-index:200;animation:sIn .2s ease}
@@ -478,11 +480,14 @@ export function renderAdmin(): string {
       const noticeHtml = activeNotices.length
         ? activeNotices.map(({ n, ni }) =>
             '<div class="nitem nitem-' + n.severity + '">' +
-            '<span class="nitem-msg">' + esc(n.message) + '</span>' +
+            '<div class="nitem-top">' +
+            '<span class="nitem-sev">' + n.severity + '</span>' +
             '<div class="nitem-actions">' +
             '<button class="btn btn-ghost btn-sm" onclick="resolveNotice(pages[' + pi + '].notices[' + ni + '].id,pages[' + pi + '].id)">Resolve</button>' +
             '<button class="btn btn-danger btn-sm" onclick="deleteNotice(pages[' + pi + '].notices[' + ni + '].id,pages[' + pi + '].id)">&#215;</button>' +
-            '</div></div>'
+            '</div></div>' +
+            '<div class="nitem-msg">' + esc(n.message) + '</div>' +
+            '</div>'
           ).join('')
         : '<div style="font-size:.8rem;color:#94a3b8">No active notices</div>';
 
