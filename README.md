@@ -266,7 +266,10 @@ via the Cloudflare D1 Console for any subsequent schema changes.
 ALTER TABLE incidents ADD COLUMN trigger_status_code INTEGER;
 ALTER TABLE incidents ADD COLUMN trigger_error TEXT;
 ALTER TABLE status_pages ADD COLUMN incident_history_days INTEGER NOT NULL DEFAULT 30;
+ALTER TABLE monitors ADD COLUMN expected_status_code INTEGER;
 ```
+
+Migration files for each schema change are also kept in `migrations/` for reference.
 
 **Custom domains require Cloudflare DNS.**
 `custom_domain = true` in `wrangler.toml` only works when the domain is proxied
