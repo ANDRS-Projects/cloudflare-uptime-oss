@@ -1,3 +1,5 @@
+import { themeHeadScript, themeCssVars, themeToggleBtn, themeBodyScript } from './theme.js';
+
 export function renderAdmin(): string {
   return /* html */ `<!DOCTYPE html>
 <html lang="en">
@@ -5,89 +7,92 @@ export function renderAdmin(): string {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Uptime Monitor</title>
+  ${themeHeadScript()}
   <style>
+    ${themeCssVars()}
     *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f8fafc;color:#1e293b}
-    .sidebar{position:fixed;left:0;top:0;bottom:0;width:220px;background:#1e293b;color:#94a3b8;padding:1.5rem 1rem;display:flex;flex-direction:column;gap:.25rem}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text)}
+    .sidebar{position:fixed;left:0;top:0;bottom:0;width:220px;background:var(--sidebar);color:#94a3b8;padding:1.5rem 1rem;display:flex;flex-direction:column;gap:.25rem}
     .sidebar h1{color:#f1f5f9;font-size:.95rem;font-weight:700;margin-bottom:1rem;letter-spacing:.02em}
     .sidebar a{display:block;padding:.5rem .75rem;border-radius:6px;text-decoration:none;color:#94a3b8;font-size:.875rem;cursor:pointer;transition:all .15s}
-    .sidebar a:hover,.sidebar a.active{background:#334155;color:#f1f5f9}
+    .sidebar a:hover,.sidebar a.active{background:var(--sidebar-hover);color:#f1f5f9}
+    .sidebar-footer{margin-top:auto;padding-top:.5rem}
     .main{margin-left:220px;padding:2rem}
     .page{display:none}.page.active{display:block}
     .header{display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem}
-    .header h2{font-size:1.2rem;font-weight:600;color:#0f172a}
+    .header h2{font-size:1.2rem;font-weight:600;color:var(--heading)}
     .btn{padding:.5rem 1rem;border-radius:6px;border:none;font-size:.875rem;font-weight:500;cursor:pointer;transition:all .15s}
     .btn-primary{background:#3b82f6;color:white}.btn-primary:hover{background:#2563eb}
     .btn-danger{background:#fee2e2;color:#dc2626}.btn-danger:hover{background:#fecaca}
-    .btn-ghost{background:transparent;color:#64748b;border:1px solid #e2e8f0}.btn-ghost:hover{background:#f1f5f9}
+    .btn-ghost{background:transparent;color:var(--text-muted);border:1px solid var(--border)}.btn-ghost:hover{background:var(--border-faint);color:var(--text)}
     .btn-sm{padding:.25rem .625rem;font-size:.8rem}
-    .card{background:white;border-radius:8px;border:1px solid #e2e8f0;margin-bottom:1rem}
-    .th{display:grid;grid-template-columns:1.5rem 1fr 1fr 7rem 6rem 7rem 15rem;align-items:center;padding:.75rem 1rem;gap:.75rem;background:#f8fafc;border-bottom:1px solid #e2e8f0;font-size:.72rem;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.05em;border-radius:8px 8px 0 0}
-    .mrow{display:grid;grid-template-columns:1.5rem 1fr 1fr 7rem 6rem 7rem 15rem;align-items:center;padding:.875rem 1rem;gap:.75rem;border-bottom:1px solid #f1f5f9}
-    .mrow:last-child{border-bottom:none}.mrow:hover{background:#fafafa}
+    .card{background:var(--surface);border-radius:8px;border:1px solid var(--border);margin-bottom:1rem}
+    .th{display:grid;grid-template-columns:1.5rem 1fr 1fr 7rem 6rem 7rem 15rem;align-items:center;padding:.75rem 1rem;gap:.75rem;background:var(--bg);border-bottom:1px solid var(--border);font-size:.72rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;border-radius:8px 8px 0 0}
+    .mrow{display:grid;grid-template-columns:1.5rem 1fr 1fr 7rem 6rem 7rem 15rem;align-items:center;padding:.875rem 1rem;gap:.75rem;border-bottom:1px solid var(--border-faint)}
+    .mrow:last-child{border-bottom:none}.mrow:hover{background:var(--border-faint)}
     .dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
     .dot-up{background:#22c55e;box-shadow:0 0 0 3px #dcfce7}
     .dot-down{background:#ef4444;box-shadow:0 0 0 3px #fee2e2}
-    .dot-unknown{background:#94a3b8;box-shadow:0 0 0 3px #f1f5f9}
+    .dot-unknown{background:#94a3b8;box-shadow:0 0 0 3px var(--border-faint)}
     .mname{font-weight:500;font-size:.875rem}
-    .murl{font-size:.8rem;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .murl{font-size:.8rem;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .badge{display:inline-block;padding:.2rem .5rem;border-radius:4px;font-size:.75rem;font-weight:500}
     .badge-up{background:#dcfce7;color:#16a34a}
     .badge-down{background:#fee2e2;color:#dc2626}
-    .badge-unknown{background:#f1f5f9;color:#64748b}
+    .badge-unknown{background:var(--border-faint);color:var(--text-muted)}
     .actions{display:flex;gap:.4rem}
     .modal-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:100;align-items:center;justify-content:center}
     .modal-backdrop.open{display:flex}
-    .modal{background:white;border-radius:10px;padding:1.5rem;width:480px;max-width:95vw;box-shadow:0 20px 60px rgba(0,0,0,.15)}
+    .modal{background:var(--surface);border-radius:10px;padding:1.5rem;width:480px;max-width:95vw;box-shadow:0 20px 60px rgba(0,0,0,.15)}
     .modal h3{font-size:1rem;font-weight:600;margin-bottom:1.25rem}
     .fg{margin-bottom:1rem}
-    .fg label{display:block;font-size:.8rem;font-weight:500;color:#374151;margin-bottom:.35rem}
-    .fg input,.fg select{width:100%;padding:.5rem .75rem;border:1px solid #d1d5db;border-radius:6px;font-size:.875rem;outline:none;transition:border .15s}
-    .fg input:focus,.fg select:focus{border-color:#3b82f6}
+    .fg label{display:block;font-size:.8rem;font-weight:500;color:var(--text);margin-bottom:.35rem}
+    .fg input,.fg select{width:100%;padding:.5rem .75rem;border:1px solid var(--input-border);border-radius:6px;font-size:.875rem;outline:none;transition:border .15s;background:var(--surface);color:var(--text)}
+    .fg input:focus,.fg select:focus{border-color:var(--accent)}
     .frow{display:grid;grid-template-columns:1fr 1fr;gap:.75rem}
     .mf{display:flex;justify-content:flex-end;gap:.75rem;margin-top:1.5rem}
     .pages-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:1rem}
-    .pcard{background:white;border-radius:8px;border:1px solid #e2e8f0;padding:1rem}
+    .pcard{background:var(--surface);border-radius:8px;border:1px solid var(--border);padding:1rem}
     .pcard-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:.75rem}
     .pcard h3{font-size:.9rem;font-weight:600}
-    .pslug{font-size:.75rem;color:#64748b;margin-top:.15rem}
+    .pslug{font-size:.75rem;color:var(--text-muted);margin-top:.15rem}
     .pcard-actions{display:flex;gap:.4rem}
     .chips{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:.75rem}
-    .chip{display:inline-flex;align-items:center;gap:.3rem;padding:.2rem .5rem;border-radius:4px;font-size:.75rem;background:#f1f5f9;color:#374151}
-    .chip-x{cursor:pointer;color:#94a3b8;font-size:.85rem;line-height:1}.chip-x:hover{color:#ef4444}
+    .chip{display:inline-flex;align-items:center;gap:.3rem;padding:.2rem .5rem;border-radius:4px;font-size:.75rem;background:var(--border-faint);color:var(--text)}
+    .chip-x{cursor:pointer;color:var(--text-faint);font-size:.85rem;line-height:1}.chip-x:hover{color:#ef4444}
     .padd{display:flex;gap:.5rem;align-items:center}
-    .padd select{padding:.4rem .6rem;border:1px solid #e2e8f0;border-radius:6px;font-size:.8rem;background:white;cursor:pointer}
-    .empty{text-align:center;padding:3rem;color:#94a3b8;font-size:.875rem}
+    .padd select{padding:.4rem .6rem;border:1px solid var(--border);border-radius:6px;font-size:.8rem;background:var(--surface);color:var(--text);cursor:pointer}
+    .empty{text-align:center;padding:3rem;color:var(--text-faint);font-size:.875rem}
     .htable{width:100%;border-collapse:collapse;font-size:.8rem}
-    .htable th{text-align:left;padding:.4rem .75rem;color:#64748b;font-weight:600;font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid #e2e8f0}
-    .htable td{padding:.5rem .75rem;border-bottom:1px solid #f8fafc;vertical-align:middle}
-    .hrow-down{background:#fff8f8}.hrow-down .htime{color:#ef4444}
+    .htable th{text-align:left;padding:.4rem .75rem;color:var(--text-muted);font-weight:600;font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--border)}
+    .htable td{padding:.5rem .75rem;border-bottom:1px solid var(--bg);vertical-align:middle}
+    .hrow-down{background:var(--row-down-bg)}.hrow-down .htime{color:#ef4444}
     .herr{color:#ef4444;font-size:.75rem;max-width:220px;word-break:break-all}
     .hm-scroll{max-height:62vh;overflow-y:auto}
-    .domain-row{display:flex;align-items:center;gap:.5rem;padding:.5rem 0;border-bottom:1px solid #f1f5f9;margin-bottom:.625rem;font-size:.8rem}
-    .domain-val{color:#3b82f6;font-weight:500;flex:1}
-    .domain-input{flex:1;padding:.35rem .5rem;border:1px solid #e2e8f0;border-radius:6px;font-size:.8rem;outline:none}
-    .domain-input:focus{border-color:#3b82f6}
-    .notices-hdr{display:flex;justify-content:space-between;align-items:center;margin:.875rem 0 .4rem;border-top:1px solid #f1f5f9;padding-top:.875rem}
-    .notices-label{font-size:.72rem;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:.05em}
+    .domain-row{display:flex;align-items:center;gap:.5rem;padding:.5rem 0;border-bottom:1px solid var(--border-faint);margin-bottom:.625rem;font-size:.8rem}
+    .domain-val{color:var(--accent);font-weight:500;flex:1}
+    .domain-input{flex:1;padding:.35rem .5rem;border:1px solid var(--border);border-radius:6px;font-size:.8rem;outline:none;background:var(--surface);color:var(--text)}
+    .domain-input:focus{border-color:var(--accent)}
+    .notices-hdr{display:flex;justify-content:space-between;align-items:center;margin:.875rem 0 .4rem;border-top:1px solid var(--border-faint);padding-top:.875rem}
+    .notices-label{font-size:.72rem;font-weight:600;color:var(--text-faint);text-transform:uppercase;letter-spacing:.05em}
     .nitem{padding:.5rem .625rem;border-radius:6px;margin-bottom:.35rem;font-size:.8rem}
-    .nitem-info{background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe}
-    .nitem-warning{background:#fffbeb;color:#92400e;border:1px solid #fde68a}
-    .nitem-critical{background:#fef2f2;color:#991b1b;border:1px solid #fecaca}
+    .nitem-info{background:var(--blue-bg);color:var(--blue-text);border:1px solid var(--blue-border)}
+    .nitem-warning{background:var(--yellow-bg);color:var(--yellow-text);border:1px solid var(--yellow-border)}
+    .nitem-critical{background:var(--red-bg);color:var(--red-text);border:1px solid var(--red-border)}
     .nitem-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:.3rem}
     .nitem-sev{font-size:.7rem;font-weight:600;text-transform:capitalize;opacity:.75}
     .nitem-msg{font-weight:500;line-height:1.4}
     .nitem-actions{display:flex;gap:.3rem}
-    .fg textarea{width:100%;padding:.5rem .75rem;border:1px solid #d1d5db;border-radius:6px;font-size:.875rem;outline:none;transition:border .15s;resize:vertical;min-height:80px;font-family:inherit}
-    .fg textarea:focus{border-color:#3b82f6}
+    .fg textarea{width:100%;padding:.5rem .75rem;border:1px solid var(--input-border);border-radius:6px;font-size:.875rem;outline:none;transition:border .15s;resize:vertical;min-height:80px;font-family:inherit;background:var(--surface);color:var(--text)}
+    .fg textarea:focus{border-color:var(--accent)}
     .toast{position:fixed;bottom:1.5rem;right:1.5rem;padding:.75rem 1.25rem;border-radius:8px;font-size:.875rem;font-weight:500;color:white;z-index:200;animation:sIn .2s ease}
     .toast-success{background:#22c55e}.toast-error{background:#ef4444}
     @keyframes sIn{from{transform:translateX(100%);opacity:0}to{transform:none;opacity:1}}
-    .overlay{display:none;position:fixed;inset:0;background:#f8fafc;z-index:50;align-items:center;justify-content:center}
+    .overlay{display:none;position:fixed;inset:0;background:var(--bg);z-index:50;align-items:center;justify-content:center}
     .overlay.show{display:flex}
-    .login-box{background:white;border-radius:10px;border:1px solid #e2e8f0;padding:2rem;width:360px;box-shadow:0 4px 24px rgba(0,0,0,.06)}
+    .login-box{background:var(--surface);border-radius:10px;border:1px solid var(--border);padding:2rem;width:360px;box-shadow:0 4px 24px rgba(0,0,0,.06)}
     .login-box h2{font-size:1.1rem;font-weight:600;margin-bottom:.25rem}
-    .login-box p{font-size:.85rem;color:#64748b;margin-bottom:1.25rem}
+    .login-box p{font-size:.85rem;color:var(--text-muted);margin-bottom:1.25rem}
   </style>
 </head>
 <body>
@@ -111,6 +116,7 @@ export function renderAdmin(): string {
     <h1>&#8593; Uptime Monitor</h1>
     <a class="active" onclick="showPage('monitors',this)">Monitors</a>
     <a onclick="showPage('pages',this)">Status Pages</a>
+    <div class="sidebar-footer">${themeToggleBtn('color:#94a3b8')}</div>
   </div>
 
   <div class="main">
@@ -321,7 +327,7 @@ export function renderAdmin(): string {
         '<div class="murl" title="' + esc(m.url) + '">' + esc(m.url) + '</div>' +
         '<span class="badge badge-' + st + '">' + label + '</span>' +
         '<span style="font-size:.875rem;font-weight:500">' + uptime + '</span>' +
-        '<span style="font-size:.875rem;color:#64748b">' + lat + '</span>' +
+        '<span style="font-size:.875rem;color:var(--text-muted)">' + lat + '</span>' +
         '<div class="actions">' +
         '<button class="btn btn-ghost btn-sm" onclick="openHistoryModal(' + i + ')">History</button>' +
         '<button class="btn btn-ghost btn-sm" onclick="openMonitorModal(monitors[' + i + '])">Edit</button>' +
@@ -476,7 +482,7 @@ export function renderAdmin(): string {
       const available = monitors.filter(m => !assignedIds.includes(m.id));
       const chips = (p.monitors || []).map((m, mi) =>
         '<span class="chip">' + esc(m.name) + '<span class="chip-x" onclick="removeMonitorFromPage(pages[' + pi + '].id,pages[' + pi + '].monitors[' + mi + '].id)">×</span></span>'
-      ).join('') || '<span style="font-size:.8rem;color:#94a3b8">No monitors assigned</span>';
+      ).join('') || '<span style="font-size:.8rem;color:var(--text-faint)">No monitors assigned</span>';
       const opts = available.map(m => '<option value="' + m.id + '">' + esc(m.name) + '</option>').join('');
       const origin = window.location.origin;
       const activeNotices = (p.notices || []).map((n, ni) => ({ n, ni })).filter(({ n }) => !n.resolved_at);
@@ -492,7 +498,7 @@ export function renderAdmin(): string {
             '<div class="nitem-msg">' + esc(n.message) + '</div>' +
             '</div>'
           ).join('')
-        : '<div style="font-size:.8rem;color:#94a3b8">No active notices</div>';
+        : '<div style="font-size:.8rem;color:var(--text-faint)">No active notices</div>';
 
       return '<div class="pcard">' +
         '<div class="pcard-header"><div><h3>' + esc(p.name) + '</h3><div class="pslug">/status/' + esc(p.slug) + '</div></div>' +
@@ -504,7 +510,7 @@ export function renderAdmin(): string {
         '<div class="domain-row">' +
         (p.logo_url
           ? '<img src="' + esc(p.logo_url) + '" alt="logo" style="height:22px;max-width:80px;object-fit:contain;border-radius:3px"><span class="domain-val" style="font-size:.78rem">Logo set</span><button class="btn btn-ghost btn-sm" onclick="removeLogo(' + pi + ')">Remove</button>'
-          : '<input id="logo-' + pi + '" type="file" accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml" style="font-size:.8rem;flex:1"><button class="btn btn-ghost btn-sm" onclick="uploadLogo(' + pi + ')">Upload</button>') +
+          : '<input id="logo-' + pi + '" type="file" accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml" style="font-size:.8rem;flex:1;color:var(--text)"><button class="btn btn-ghost btn-sm" onclick="uploadLogo(' + pi + ')">Upload</button>') +
         '</div>' +
         '<div class="domain-row">' +
         (p.custom_domain
@@ -515,15 +521,15 @@ export function renderAdmin(): string {
         '<div class="padd">' +
         (opts
           ? '<select id="padd-' + p.id + '"><option value="">Add monitor…</option>' + opts + '</select><button class="btn btn-ghost btn-sm" onclick="addMonitorToPage(pages[' + pi + '].id)">Add</button>'
-          : (monitors.length ? '<span style="font-size:.8rem;color:#94a3b8">All monitors assigned</span>' : '<span style="font-size:.8rem;color:#94a3b8">No monitors created yet</span>')) +
+          : (monitors.length ? '<span style="font-size:.8rem;color:var(--text-faint)">All monitors assigned</span>' : '<span style="font-size:.8rem;color:var(--text-faint)">No monitors created yet</span>')) +
         '</div>' +
         '<div class="notices-hdr"><span class="notices-label">Notices</span>' +
         '<button class="btn btn-ghost btn-sm" onclick="openNoticeModal(pages[' + pi + '].id)">+ Add Notice</button>' +
         '</div>' +
         noticeHtml +
-        '<div class="domain-row" style="border-top:1px solid #f1f5f9;margin-top:.5rem;padding-top:.625rem">' +
-        '<span style="font-size:.8rem;color:#64748b;flex:1">Incident history window</span>' +
-        '<select onchange="setHistoryDays(pages[' + pi + '].id,this.value)" style="padding:.3rem .5rem;border:1px solid #e2e8f0;border-radius:6px;font-size:.8rem;background:white;cursor:pointer">' +
+        '<div class="domain-row" style="border-top:1px solid var(--border-faint);margin-top:.5rem;padding-top:.625rem">' +
+        '<span style="font-size:.8rem;color:var(--text-muted);flex:1">Incident history window</span>' +
+        '<select onchange="setHistoryDays(pages[' + pi + '].id,this.value)" style="padding:.3rem .5rem;border:1px solid var(--border);border-radius:6px;font-size:.8rem;background:var(--surface);color:var(--text);cursor:pointer">' +
         '<option value="30"' + (p.incident_history_days === 30 ? ' selected' : '') + '>30 days</option>' +
         '<option value="90"' + (p.incident_history_days === 90 ? ' selected' : '') + '>90 days</option>' +
         '</select>' +
@@ -548,11 +554,11 @@ export function renderAdmin(): string {
   async function openHistoryModal(i) {
     const m = monitors[i];
     document.getElementById('hm-title').textContent = m.name + ' — Recent Checks';
-    document.getElementById('hm-body').innerHTML = '<div style="text-align:center;padding:2rem;color:#94a3b8">Loading&hellip;</div>';
+    document.getElementById('hm-body').innerHTML = '<div style="text-align:center;padding:2rem;color:var(--text-faint)">Loading&hellip;</div>';
     document.getElementById('history-modal').classList.add('open');
     const checks = await api('/api/monitors/' + m.id + '/checks?limit=50');
     if (!checks.length) {
-      document.getElementById('hm-body').innerHTML = '<div style="text-align:center;padding:2rem;color:#94a3b8">No checks recorded yet.</div>';
+      document.getElementById('hm-body').innerHTML = '<div style="text-align:center;padding:2rem;color:var(--text-faint)">No checks recorded yet.</div>';
       return;
     }
     const rows = checks.map(c => {
@@ -595,6 +601,7 @@ export function renderAdmin(): string {
     });
   }
 </script>
+${themeBodyScript()}
 </body>
 </html>`;
 }
