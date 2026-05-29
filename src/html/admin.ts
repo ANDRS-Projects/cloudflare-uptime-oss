@@ -161,6 +161,7 @@ export function renderAdmin(): string {
       </div>
       <div class="fg"><label>Timeout (ms)</label><input id="m-timeout" type="number" value="10000" min="1000" max="30000"></div>
     </div>
+    <div class="fg"><label>Expected Status Code (optional, e.g. 401)</label><input id="m-expected-status" type="number" placeholder="Leave blank for any 2xx–3xx" min="100" max="599"></div>
     <div class="fg"><label>Alert Webhook (Slack / Discord / custom)</label><input id="m-webhook" type="url" placeholder="https://hooks.slack.com/..."></div>
     <div class="mf">
       <button class="btn btn-ghost" onclick="closeMonitorModal()">Cancel</button>
@@ -260,6 +261,7 @@ export function renderAdmin(): string {
     document.getElementById('m-url').value = m?.url || '';
     document.getElementById('m-interval').value = m?.interval_minutes || '1';
     document.getElementById('m-timeout').value = m?.timeout_ms || '10000';
+    document.getElementById('m-expected-status').value = m?.expected_status_code || '';
     document.getElementById('m-webhook').value = m?.alert_webhook || '';
     document.getElementById('monitor-modal').classList.add('open');
   }
@@ -275,6 +277,7 @@ export function renderAdmin(): string {
       url: document.getElementById('m-url').value.trim(),
       interval_minutes: parseInt(document.getElementById('m-interval').value),
       timeout_ms: parseInt(document.getElementById('m-timeout').value),
+      expected_status_code: parseInt(document.getElementById('m-expected-status').value) || null,
       alert_webhook: document.getElementById('m-webhook').value.trim() || null,
     };
     if (!data.name || !data.url) { toast('Name and URL are required', 'error'); return; }
@@ -297,7 +300,7 @@ export function renderAdmin(): string {
   }
 
   async function loadMonitors() {
-    monitors = await api('/api/monitors');
+    monitors = (await api('/api/monitors')).sort((a, b) => a.name.localeCompare(b.name));
     renderMonitors();
   }
 
@@ -574,7 +577,8 @@ export function renderAdmin(): string {
   }
 
   async function init() {
-    await Promise.all([loadMonitors(), loadPages()]);
+    await loadMonitors();
+    await loadPages();
     setInterval(loadMonitors, 30000);
   }
 

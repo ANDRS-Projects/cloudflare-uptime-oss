@@ -23,6 +23,7 @@ export async function createMonitor(c: Context<{ Bindings: Env }>) {
     interval_minutes?: number;
     timeout_ms?: number;
     alert_webhook?: string;
+    expected_status_code?: number;
   }>();
 
   if (!body.name || !body.url) {
@@ -37,6 +38,7 @@ export async function createMonitor(c: Context<{ Bindings: Env }>) {
     interval_minutes: body.interval_minutes ?? 1,
     timeout_ms: body.timeout_ms ?? 10000,
     alert_webhook: body.alert_webhook ?? null,
+    expected_status_code: body.expected_status_code ?? null,
   });
   return c.json({ id }, 201);
 }
@@ -44,7 +46,7 @@ export async function createMonitor(c: Context<{ Bindings: Env }>) {
 export async function updateMonitor(c: Context<{ Bindings: Env }>) {
   const id = c.req.param('id');
   const body = await c.req.json<Record<string, unknown>>();
-  const allowed = ['name', 'url', 'interval_minutes', 'timeout_ms', 'alert_webhook', 'active'];
+  const allowed = ['name', 'url', 'interval_minutes', 'timeout_ms', 'alert_webhook', 'active', 'expected_status_code'];
   const updates = Object.fromEntries(
     Object.entries(body).filter(([k]) => allowed.includes(k))
   );

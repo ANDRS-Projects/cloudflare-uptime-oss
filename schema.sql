@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS monitors (
   interval_minutes INTEGER NOT NULL DEFAULT 1,
   timeout_ms INTEGER NOT NULL DEFAULT 10000,
   alert_webhook TEXT,
+  expected_status_code INTEGER,
   created_at INTEGER NOT NULL DEFAULT (unixepoch()),
   active INTEGER NOT NULL DEFAULT 1
 );
