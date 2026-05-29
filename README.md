@@ -34,7 +34,9 @@ Self-hosted uptime monitoring on Cloudflare Workers with public status pages —
 - **RSS feed** — `/status/:slug/rss` for incident subscribers
 - **Custom logo per page** — upload a logo to R2; served through the Worker with immutable cache headers
 - **Custom domain routing** — each status page can be served on its own domain via `wrangler.toml` routes
+- **Expected status code** — configure the expected HTTP response code per monitor (useful for endpoints that intentionally return 201, 204, 301, or any non-200 status)
 - **Admin dashboard** — add/edit/delete monitors and status pages, view check history
+- **Dark mode** — full light / dark / system theme support across the admin dashboard, status pages, and history pages; toggle persists via `localStorage`
 - **Slack and Discord webhook alerts** — per-monitor webhooks fire on incident open and close
 - **Maintenance notices** — create notices that appear on status pages; resolved notices stay visible for 24 hours with a "Resolved" badge
 - **Cron-based checks** — Cloudflare cron triggers run the check loop on your configured schedule
@@ -223,6 +225,7 @@ There is no traditional `.env` file — see `.env.example` for a full annotated 
 | `url` | The HTTP(S) endpoint to monitor |
 | `interval_minutes` | How often to check (1, 5, 10, 15, 30, 60) |
 | `timeout_ms` | Request timeout in milliseconds (default: 10000) |
+| `expected_status_code` | Expected HTTP response code (optional — leave blank to accept any 2xx–3xx) |
 | `alert_webhook` | Slack or Discord incoming webhook URL for up/down alerts |
 
 ### Per-status-page settings (set via admin dashboard)
