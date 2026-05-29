@@ -1,3 +1,5 @@
+import { themeHeadScript, themeCssVars, themeToggleBtn, themeBodyScript } from './theme.js';
+
 export function renderHistoryPage(slug: string, isCustomDomain = false): string {
   const statusHref = isCustomDomain ? '/' : `/status/${slug}`;
   return /* html */ `<!DOCTYPE html>
@@ -6,39 +8,43 @@ export function renderHistoryPage(slug: string, isCustomDomain = false): string 
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Incident History</title>
+  ${themeHeadScript()}
   <style>
+    ${themeCssVars()}
     *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f8fafc;color:#1e293b}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text)}
     .container{max-width:760px;margin:0 auto;padding:3rem 1.5rem}
     .hdr{margin-bottom:2.5rem}
-    .hdr h1{font-size:1.75rem;font-weight:700;color:#0f172a}
-    .hdr p{color:#64748b;margin-top:.4rem;font-size:.95rem}
-    .back{display:inline-flex;align-items:center;gap:.35rem;font-size:.85rem;color:#64748b;text-decoration:none;margin-bottom:1.5rem;transition:color .15s}
-    .back:hover{color:#0f172a}
-    .window-label{font-size:.8rem;color:#94a3b8;margin-top:.35rem}
-    .sec-label{font-size:.72rem;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em;margin-bottom:.75rem;margin-top:2rem}
+    .hdr h1{font-size:1.75rem;font-weight:700;color:var(--heading)}
+    .hdr p{color:var(--text-muted);margin-top:.4rem;font-size:.95rem}
+    .back{display:inline-flex;align-items:center;gap:.35rem;font-size:.85rem;color:var(--text-muted);text-decoration:none;margin-bottom:1.5rem;transition:color .15s}
+    .back:hover{color:var(--heading)}
+    .window-label{font-size:.8rem;color:var(--text-faint);margin-top:.35rem}
+    .sec-label{font-size:.72rem;font-weight:600;color:var(--text-faint);text-transform:uppercase;letter-spacing:.08em;margin-bottom:.75rem;margin-top:2rem}
     .month-group{margin-bottom:1.5rem}
-    .month-hdr{font-size:.8rem;font-weight:600;color:#64748b;padding:.4rem 0;margin-bottom:.5rem;display:flex;align-items:center;gap:.75rem;cursor:pointer;user-select:none}
-    .month-hdr:hover{color:#374151}
-    .month-hdr::after{content:'';flex:1;height:1px;background:#e2e8f0}
-    .chevron{display:inline-block;font-size:.65rem;color:#94a3b8;transition:transform .2s;order:1;margin-left:-.25rem}
+    .month-hdr{font-size:.8rem;font-weight:600;color:var(--text-muted);padding:.4rem 0;margin-bottom:.5rem;display:flex;align-items:center;gap:.75rem;cursor:pointer;user-select:none}
+    .month-hdr:hover{color:var(--text)}
+    .month-hdr::after{content:'';flex:1;height:1px;background:var(--border)}
+    .chevron{display:inline-block;font-size:.65rem;color:var(--text-faint);transition:transform .2s;order:1;margin-left:-.25rem}
     .month-group.collapsed .chevron{transform:rotate(-90deg)}
     .month-group.collapsed .month-body{display:none}
-    .iitem{display:flex;justify-content:space-between;align-items:flex-start;padding:.875rem 1.25rem;background:white;border-radius:8px;border:1px solid #e2e8f0;margin-bottom:.5rem}
+    .iitem{display:flex;justify-content:space-between;align-items:flex-start;padding:.875rem 1.25rem;background:var(--surface);border-radius:8px;border:1px solid var(--border);margin-bottom:.5rem}
     .iheader{display:flex;align-items:center;flex-wrap:wrap;gap:.5rem}
-    .iname{font-size:.875rem;font-weight:500;color:#0f172a}
+    .iname{font-size:.875rem;font-weight:500;color:var(--heading)}
     .ireason{display:flex;align-items:center;gap:.35rem;flex-wrap:wrap}
-    .idur{font-size:.8rem;color:#64748b;margin-top:.25rem}
-    .itime{font-size:.8rem;color:#94a3b8;white-space:nowrap;text-align:right;flex-shrink:0;padding-left:1rem}
+    .idur{font-size:.8rem;color:var(--text-muted);margin-top:.25rem}
+    .itime{font-size:.8rem;color:var(--text-faint);white-space:nowrap;text-align:right;flex-shrink:0;padding-left:1rem}
     .ongoing{color:#dc2626;font-weight:500}
-    .all-clear{display:flex;align-items:center;gap:.75rem;padding:1rem 1.25rem;border-radius:10px;background:#f0fdf4;color:#166534;border:1px solid #bbf7d0;font-weight:600;font-size:.95rem;margin-top:1rem}
-    .footer{margin-top:3rem;text-align:center;font-size:.75rem;color:#cbd5e1}
-    .loading{text-align:center;padding:4rem;color:#94a3b8}
+    .all-clear{display:flex;align-items:center;gap:.75rem;padding:1rem 1.25rem;border-radius:10px;background:var(--green-bg);color:var(--green);border:1px solid var(--green-border);font-weight:600;font-size:.95rem;margin-top:1rem}
+    .footer{margin-top:3rem;text-align:center;font-size:.75rem;color:var(--text-faint)}
+    .loading{text-align:center;padding:4rem;color:var(--text-faint)}
     .err{text-align:center;padding:4rem;color:#ef4444}
     @media(max-width:520px){.iheader{display:block}.ireason{margin-top:.2rem}.iitem{flex-direction:column;gap:.35rem}.itime{text-align:left;padding-left:0}}
+    .theme-btn{position:fixed;top:.75rem;right:.75rem;z-index:10}
   </style>
 </head>
 <body>
+<div class="theme-btn">${themeToggleBtn()}</div>
 <div class="container">
   <a href="${statusHref}" class="back">&#8592; Back to status</a>
   <div id="root"><div class="loading">Loading&hellip;</div></div>
@@ -87,13 +93,13 @@ export function renderHistoryPage(slug: string, isCustomDomain = false): string 
   function reasonHtml(i) {
     if (i.trigger_status_code) {
       const desc = HTTP_DESC[i.trigger_status_code];
-      return '<span style="background:#fee2e2;color:#991b1b;font-size:.7rem;padding:.15rem .45rem;border-radius:4px;font-weight:500">HTTP&nbsp;' + i.trigger_status_code + '</span>' +
-        (desc ? '<span style="color:#64748b;font-size:.8rem">' + desc + '</span>' : '');
+      return '<span style="background:var(--red-bg);color:var(--red-text);font-size:.7rem;padding:.15rem .45rem;border-radius:4px;font-weight:500">HTTP&nbsp;' + i.trigger_status_code + '</span>' +
+        (desc ? '<span style="color:var(--text-muted);font-size:.8rem">' + desc + '</span>' : '');
     }
     if (i.trigger_error) {
       const isTimeout = /timeout|timed?\\s*out/i.test(i.trigger_error);
-      return '<span style="background:#f1f5f9;color:#64748b;font-size:.7rem;padding:.15rem .45rem;border-radius:4px">' + (isTimeout ? 'Timeout' : 'Error') + '</span>' +
-        (!isTimeout ? '<span style="color:#64748b;font-size:.8rem">' + esc(i.trigger_error.slice(0, 80)) + '</span>' : '');
+      return '<span style="background:var(--border-faint);color:var(--text-muted);font-size:.7rem;padding:.15rem .45rem;border-radius:4px">' + (isTimeout ? 'Timeout' : 'Error') + '</span>' +
+        (!isTimeout ? '<span style="color:var(--text-muted);font-size:.8rem">' + esc(i.trigger_error.slice(0, 80)) + '</span>' : '');
     }
     return '';
   }
@@ -113,9 +119,9 @@ export function renderHistoryPage(slug: string, isCustomDomain = false): string 
   }
 
   const SEV_STYLE = {
-    info:     'background:#eff6ff;color:#1d4ed8',
-    warning:  'background:#fffbeb;color:#92400e',
-    critical: 'background:#fef2f2;color:#991b1b',
+    info:     'background:var(--blue-bg);color:var(--blue-text)',
+    warning:  'background:var(--yellow-bg);color:var(--yellow-text)',
+    critical: 'background:var(--red-bg);color:var(--red-text)',
   };
 
   function monthGroups(items, keyFn) {
@@ -207,6 +213,7 @@ export function renderHistoryPage(slug: string, isCustomDomain = false): string 
 
   load();
 </script>
+${themeBodyScript()}
 </body>
 </html>`;
 }

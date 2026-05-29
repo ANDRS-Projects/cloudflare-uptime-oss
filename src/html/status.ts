@@ -1,3 +1,5 @@
+import { themeHeadScript, themeCssVars, themeToggleBtn, themeBodyScript } from './theme.js';
+
 export function renderStatusPage(slug: string, isCustomDomain = false): string {
   const historyHref = isCustomDomain ? '/history' : `/status/${slug}/history`;
   const rssHref = isCustomDomain ? '/rss' : `/status/${slug}/rss`;
@@ -8,62 +10,66 @@ export function renderStatusPage(slug: string, isCustomDomain = false): string {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Status</title>
   <link rel="alternate" type="application/rss+xml" title="Status feed" href="${rssHref}">
+  ${themeHeadScript()}
   <style>
+    ${themeCssVars()}
     *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f8fafc;color:#1e293b}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text)}
     .container{max-width:760px;margin:0 auto;padding:3rem 1.5rem}
     .hdr{margin-bottom:2.5rem}
-    .hdr h1{font-size:1.75rem;font-weight:700;color:#0f172a}
-    .hdr p{color:#64748b;margin-top:.4rem;font-size:.95rem}
+    .hdr h1{font-size:1.75rem;font-weight:700;color:var(--heading)}
+    .hdr p{color:var(--text-muted);margin-top:.4rem;font-size:.95rem}
     .overall{display:flex;align-items:center;gap:.75rem;padding:1rem 1.25rem;border-radius:10px;margin-bottom:2rem;font-weight:600;font-size:.95rem}
     .notice{padding:.875rem 1.25rem;border-radius:8px;margin-bottom:.625rem;border:1px solid}
-    .notice-info{background:#eff6ff;color:#1d4ed8;border-color:#bfdbfe}
-    .notice-warning{background:#fffbeb;color:#92400e;border-color:#fde68a}
-    .notice-critical{background:#fef2f2;color:#991b1b;border-color:#fecaca}
-    .notice-resolved{background:#f8fafc;color:#64748b;border-color:#e2e8f0}
+    .notice-info{background:var(--blue-bg);color:var(--blue-text);border-color:var(--blue-border)}
+    .notice-warning{background:var(--yellow-bg);color:var(--yellow-text);border-color:var(--yellow-border)}
+    .notice-critical{background:var(--red-bg);color:var(--red-text);border-color:var(--red-border)}
+    .notice-resolved{background:var(--bg);color:var(--text-muted);border-color:var(--border)}
     .notice-msg{font-size:.875rem;font-weight:500;line-height:1.4}
     .notice-meta{font-size:.75rem;opacity:.65;margin-top:.25rem}
-    .resolved-badge{display:inline-flex;align-items:center;gap:.25rem;font-size:.7rem;font-weight:600;background:#dcfce7;color:#16a34a;padding:.1rem .4rem;border-radius:4px;margin-left:.5rem;vertical-align:middle}
-    .all-good{background:#f0fdf4;color:#166534;border:1px solid #bbf7d0}
-    .has-issues{background:#fef2f2;color:#991b1b;border:1px solid #fecaca}
-    .partial{background:#fffbeb;color:#92400e;border:1px solid #fde68a}
-    .sec-label{font-size:.72rem;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em;margin-bottom:.75rem}
-    .mitem{background:white;border-radius:8px;border:1px solid #e2e8f0;padding:1rem 1.25rem;margin-bottom:.5rem}
+    .resolved-badge{display:inline-flex;align-items:center;gap:.25rem;font-size:.7rem;font-weight:600;background:var(--green-bg);color:var(--green);padding:.1rem .4rem;border-radius:4px;margin-left:.5rem;vertical-align:middle}
+    .all-good{background:var(--green-bg);color:var(--green);border:1px solid var(--green-border)}
+    .has-issues{background:var(--red-bg);color:var(--red-text);border:1px solid var(--red-border)}
+    .partial{background:var(--yellow-bg);color:var(--yellow-text);border:1px solid var(--yellow-border)}
+    .sec-label{font-size:.72rem;font-weight:600;color:var(--text-faint);text-transform:uppercase;letter-spacing:.08em;margin-bottom:.75rem}
+    .mitem{background:var(--surface);border-radius:8px;border:1px solid var(--border);padding:1rem 1.25rem;margin-bottom:.5rem}
     .mtop{display:flex;justify-content:space-between;align-items:center;margin-bottom:.65rem}
     .mname{font-weight:500;font-size:.9rem}
     .mmeta{display:flex;align-items:center;gap:.875rem}
     @media(max-width:520px){.mtop{flex-direction:column;align-items:flex-start;gap:.4rem}.mmeta{flex-wrap:wrap;gap:.5rem}}
     .sbadge{display:inline-flex;align-items:center;gap:.35rem;font-size:.8rem;font-weight:500;padding:.2rem .6rem;border-radius:20px}
-    .s-up{background:#f0fdf4;color:#16a34a}
-    .s-down{background:#fef2f2;color:#dc2626}
-    .s-unknown{background:#f8fafc;color:#94a3b8}
+    .s-up{background:var(--green-bg);color:var(--green)}
+    .s-down{background:var(--red-bg);color:var(--red-text)}
+    .s-unknown{background:var(--bg);color:var(--text-faint)}
     .sdot{width:6px;height:6px;border-radius:50%}
     .sdot-up{background:#22c55e}.sdot-down{background:#ef4444}.sdot-unknown{background:#94a3b8}
     .uptime-bar{display:flex;gap:1.5px;height:28px;align-items:stretch}
     .bkt{flex:1;border-radius:2px;cursor:default}
     .bkt:hover{opacity:.7}
-    .bkt-up{background:#86efac}.bkt-down{background:#fca5a5}.bkt-unknown{background:#e2e8f0}
-    .bar-foot{display:flex;justify-content:space-between;font-size:.7rem;color:#94a3b8;margin-top:.35rem}
+    .bkt-up{background:#86efac}.bkt-down{background:#fca5a5}.bkt-unknown{background:var(--border)}
+    .bar-foot{display:flex;justify-content:space-between;font-size:.7rem;color:var(--text-faint);margin-top:.35rem}
     .graph-wrap{margin-top:.75rem}
-    .graph-label{font-size:.7rem;color:#94a3b8;margin-bottom:.2rem}
-    .graph-foot{display:flex;justify-content:space-between;font-size:.7rem;color:#94a3b8;margin-top:.2rem}
-    .upct{font-size:.8rem;color:#64748b;font-weight:500;white-space:nowrap}
-    .lat{font-size:.8rem;color:#94a3b8}
+    .graph-label{font-size:.7rem;color:var(--text-faint);margin-bottom:.2rem}
+    .graph-foot{display:flex;justify-content:space-between;font-size:.7rem;color:var(--text-faint);margin-top:.2rem}
+    .upct{font-size:.8rem;color:var(--text-muted);font-weight:500;white-space:nowrap}
+    .lat{font-size:.8rem;color:var(--text-faint)}
     .incidents-sec{margin-top:2.5rem}
-    .iitem{display:flex;justify-content:space-between;align-items:flex-start;padding:.875rem 1.25rem;background:white;border-radius:8px;border:1px solid #e2e8f0;margin-bottom:.5rem}
+    .iitem{display:flex;justify-content:space-between;align-items:flex-start;padding:.875rem 1.25rem;background:var(--surface);border-radius:8px;border:1px solid var(--border);margin-bottom:.5rem}
     .iheader{display:flex;align-items:center;flex-wrap:wrap;gap:.5rem}
-    .iname{font-size:.875rem;font-weight:500;color:#0f172a}
+    .iname{font-size:.875rem;font-weight:500;color:var(--heading)}
     .ireason{display:flex;align-items:center;gap:.35rem;flex-wrap:wrap}
-    .idur{font-size:.8rem;color:#64748b;margin-top:.2rem}
+    .idur{font-size:.8rem;color:var(--text-muted);margin-top:.2rem}
     @media(max-width:520px){.iheader{display:block}.ireason{margin-top:.2rem}}
-    .itime{font-size:.8rem;color:#94a3b8;white-space:nowrap}
+    .itime{font-size:.8rem;color:var(--text-faint);white-space:nowrap}
     .ongoing{color:#dc2626;font-weight:500}
-    .footer{margin-top:3rem;text-align:center;font-size:.75rem;color:#cbd5e1}
-    .loading{text-align:center;padding:4rem;color:#94a3b8}
+    .footer{margin-top:3rem;text-align:center;font-size:.75rem;color:var(--text-faint)}
+    .loading{text-align:center;padding:4rem;color:var(--text-faint)}
     .err{text-align:center;padding:4rem;color:#ef4444}
+    .theme-btn{position:fixed;top:.75rem;right:.75rem;z-index:10}
   </style>
 </head>
 <body>
+<div class="theme-btn">${themeToggleBtn()}</div>
 <div class="container">
   <div id="root"><div class="loading">Loading&hellip;</div></div>
 </div>
@@ -112,8 +118,8 @@ export function renderStatusPage(slug: string, isCustomDomain = false): string {
     const lines = segs.map(s => '<path d="' + s + '" fill="none" stroke="#22c55e" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>').join('');
     const maxLabel = maxMs >= 1000 ? (maxMs / 1000).toFixed(1) + 's' : maxMs + 'ms';
     return '<div class="graph-wrap">' +
-      '<div class="graph-label">Response time &mdash; last 24h &nbsp;<span style="color:#0f172a;font-weight:500">max ' + maxLabel + '</span></div>' +
-      '<svg width="100%" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" style="display:block;background:#f8fafc;border-radius:4px;overflow:hidden">' +
+      '<div class="graph-label">Response time &mdash; last 24h &nbsp;<span style="color:var(--heading);font-weight:500">max ' + maxLabel + '</span></div>' +
+      '<svg width="100%" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" style="display:block;background:var(--bg);border-radius:4px;overflow:hidden">' +
       downBars + lines + '</svg>' +
       '<div class="graph-foot"><span>24h ago</span><span>Now</span></div>' +
       '</div>';
@@ -161,7 +167,7 @@ export function renderStatusPage(slug: string, isCustomDomain = false): string {
         bar(m.buckets) +
         latencyGraph(m.latency_24h) +
         '</div>';
-    }).join('') || '<div style="color:#94a3b8;font-size:.875rem">No services configured.</div>';
+    }).join('') || '<div style="color:var(--text-faint);font-size:.875rem">No services configured.</div>';
 
     const allIncidents = monitors.flatMap(m =>
       (m.incidents || []).map(i => ({ ...i, monitor_name: m.name }))
@@ -181,12 +187,12 @@ export function renderStatusPage(slug: string, isCustomDomain = false): string {
       let reason = '';
       if (i.trigger_status_code) {
         const desc = HTTP_DESC[i.trigger_status_code];
-        reason = '<span style="background:#fee2e2;color:#991b1b;font-size:.7rem;padding:.15rem .45rem;border-radius:4px;font-weight:500">HTTP&nbsp;' + i.trigger_status_code + '</span>' +
-          (desc ? '<span style="color:#64748b;font-size:.8rem">' + desc + '</span>' : '');
+        reason = '<span style="background:var(--red-bg);color:var(--red-text);font-size:.7rem;padding:.15rem .45rem;border-radius:4px;font-weight:500">HTTP&nbsp;' + i.trigger_status_code + '</span>' +
+          (desc ? '<span style="color:var(--text-muted);font-size:.8rem">' + desc + '</span>' : '');
       } else if (i.trigger_error) {
         const isTimeout = /timeout|timed?\s*out/i.test(i.trigger_error);
-        reason = '<span style="background:#f1f5f9;color:#64748b;font-size:.7rem;padding:.15rem .45rem;border-radius:4px">' + (isTimeout ? 'Timeout' : 'Error') + '</span>' +
-          (!isTimeout ? '<span style="color:#64748b;font-size:.8rem">' + esc(i.trigger_error.slice(0, 80)) + '</span>' : '');
+        reason = '<span style="background:var(--border-faint);color:var(--text-muted);font-size:.7rem;padding:.15rem .45rem;border-radius:4px">' + (isTimeout ? 'Timeout' : 'Error') + '</span>' +
+          (!isTimeout ? '<span style="color:var(--text-muted);font-size:.8rem">' + esc(i.trigger_error.slice(0, 80)) + '</span>' : '');
       }
       return '<div class="iitem">' +
         '<div>' +
@@ -198,7 +204,7 @@ export function renderStatusPage(slug: string, isCustomDomain = false): string {
         '</div>' +
         '<div class="itime">' + ago(i.started_at) + '</div>' +
         '</div>';
-    }).join('') : '<div style="color:#94a3b8;font-size:.875rem;padding:.5rem 0">No incidents recorded.</div>';
+    }).join('') : '<div style="color:var(--text-faint);font-size:.875rem;padding:.5rem 0">No incidents recorded.</div>';
 
     const noticeHtml = (notices || []).length
       ? '<div style="margin-bottom:1.5rem">' +
@@ -223,13 +229,14 @@ export function renderStatusPage(slug: string, isCustomDomain = false): string {
       noticeHtml +
       '<div class="overall ' + ovClass + '">' + ovIcon + '&nbsp;' + ovText + '</div>' +
       '<div style="margin-bottom:2rem"><div class="sec-label">Services</div>' + items + '</div>' +
-      '<div class="incidents-sec"><div class="sec-label" style="display:flex;justify-content:space-between;align-items:center">Past Incidents<a href="${historyHref}" style="font-size:.75rem;color:#94a3b8;text-decoration:none;font-weight:400;text-transform:none;letter-spacing:0">View full history &rarr;</a></div>' + incidents + '</div>' +
-      '<div class="footer">Last updated ' + new Date(data.generated_at).toUTCString() + ' &nbsp;&middot;&nbsp; <a href="${rssHref}" style="color:#94a3b8;text-decoration:none" title="Subscribe via RSS">RSS feed</a></div>';
+      '<div class="incidents-sec"><div class="sec-label" style="display:flex;justify-content:space-between;align-items:center">Past Incidents<a href="${historyHref}" style="font-size:.75rem;color:var(--text-faint);text-decoration:none;font-weight:400;text-transform:none;letter-spacing:0">View full history &rarr;</a></div>' + incidents + '</div>' +
+      '<div class="footer">Last updated ' + new Date(data.generated_at).toUTCString() + ' &nbsp;&middot;&nbsp; <a href="${rssHref}" style="color:var(--text-faint);text-decoration:none" title="Subscribe via RSS">RSS feed</a></div>';
   }
 
   load();
   setInterval(load, 60000);
 </script>
+${themeBodyScript()}
 </body>
 </html>`;
 }
