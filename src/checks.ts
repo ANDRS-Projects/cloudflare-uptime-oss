@@ -14,8 +14,11 @@ export async function runCheck(monitor: Monitor): Promise<CheckResult> {
     });
     clearTimeout(timeoutId);
 
+    const ok = monitor.expected_status_code != null
+      ? response.status === monitor.expected_status_code
+      : response.status >= 200 && response.status < 400;
     return {
-      ok: response.status >= 200 && response.status < 400,
+      ok,
       status_code: response.status,
       latency_ms: Date.now() - start,
       error: null,

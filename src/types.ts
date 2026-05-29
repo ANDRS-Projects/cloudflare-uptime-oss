@@ -11,6 +11,7 @@ export interface Monitor {
   interval_minutes: number;
   timeout_ms: number;
   alert_webhook: string | null;
+  expected_status_code: number | null;
   created_at: number;
   active: number;
 }
