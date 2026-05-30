@@ -226,6 +226,7 @@ There is no traditional `.env` file — see `.env.example` for a full annotated 
 | `interval_minutes` | How often to check (1, 5, 10, 15, 30, 60) |
 | `timeout_ms` | Request timeout in milliseconds (default: 10000) |
 | `expected_status_code` | Expected HTTP response code (optional — leave blank to accept any 2xx–3xx) |
+| `retry_count` | Total check attempts before marking a site down (default: 3 — each failed attempt waits 2 s before retrying, so 3 attempts = up to 4 s before an incident fires) |
 | `alert_webhook` | Slack or Discord incoming webhook URL for up/down alerts |
 
 ### Per-status-page settings (set via admin dashboard)
@@ -271,6 +272,7 @@ ALTER TABLE incidents ADD COLUMN trigger_status_code INTEGER;
 ALTER TABLE incidents ADD COLUMN trigger_error TEXT;
 ALTER TABLE status_pages ADD COLUMN incident_history_days INTEGER NOT NULL DEFAULT 30;
 ALTER TABLE monitors ADD COLUMN expected_status_code INTEGER;
+ALTER TABLE monitors ADD COLUMN retry_count INTEGER NOT NULL DEFAULT 3;
 ```
 
 Migration files for each schema change are also kept in `migrations/` for reference.

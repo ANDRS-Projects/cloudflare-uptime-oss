@@ -1,11 +1,10 @@
 import type { Monitor, CheckResult } from './types';
 
-const RETRY_ATTEMPTS = 3;
 const RETRY_DELAY_MS = 2000;
 
 export async function checkWithRetry(monitor: Monitor): Promise<CheckResult> {
   let last!: CheckResult;
-  for (let attempt = 0; attempt < RETRY_ATTEMPTS; attempt++) {
+  for (let attempt = 0; attempt < monitor.retry_count; attempt++) {
     if (attempt > 0) {
       await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
     }
