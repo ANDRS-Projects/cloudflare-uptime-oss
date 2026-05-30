@@ -168,6 +168,16 @@ export function renderAdmin(): string {
       <div class="fg"><label>Timeout (ms)</label><input id="m-timeout" type="number" value="10000" min="1000" max="30000"></div>
     </div>
     <div class="fg"><label>Expected Status Code (optional, e.g. 401)</label><input id="m-expected-status" type="number" placeholder="Leave blank for any 2xx–3xx" min="100" max="599"></div>
+    <div class="fg">
+      <label>Attempts before marking down</label>
+      <select id="m-retry-count">
+        <option value="1">1 — no retries</option>
+        <option value="2">2</option>
+        <option value="3" selected>3 (default)</option>
+        <option value="4">4</option>
+        <option value="5">5</option>
+      </select>
+    </div>
     <div class="fg"><label>Alert Webhook (Slack / Discord / custom)</label><input id="m-webhook" type="url" placeholder="https://hooks.slack.com/..."></div>
     <div class="mf">
       <button class="btn btn-ghost" onclick="closeMonitorModal()">Cancel</button>
@@ -268,6 +278,7 @@ export function renderAdmin(): string {
     document.getElementById('m-interval').value = m?.interval_minutes || '1';
     document.getElementById('m-timeout').value = m?.timeout_ms || '10000';
     document.getElementById('m-expected-status').value = m?.expected_status_code || '';
+    document.getElementById('m-retry-count').value = m?.retry_count ?? 3;
     document.getElementById('m-webhook').value = m?.alert_webhook || '';
     document.getElementById('monitor-modal').classList.add('open');
   }
@@ -284,6 +295,7 @@ export function renderAdmin(): string {
       interval_minutes: parseInt(document.getElementById('m-interval').value),
       timeout_ms: parseInt(document.getElementById('m-timeout').value),
       expected_status_code: parseInt(document.getElementById('m-expected-status').value) || null,
+      retry_count: parseInt(document.getElementById('m-retry-count').value),
       alert_webhook: document.getElementById('m-webhook').value.trim() || null,
     };
     if (!data.name || !data.url) { toast('Name and URL are required', 'error'); return; }

@@ -15,9 +15,9 @@ export async function createMonitor(
 ): Promise<void> {
   await db
     .prepare(
-      'INSERT INTO monitors (id, name, url, interval_minutes, timeout_ms, alert_webhook, expected_status_code) VALUES (?, ?, ?, ?, ?, ?, ?)'
+      'INSERT INTO monitors (id, name, url, interval_minutes, timeout_ms, alert_webhook, expected_status_code, retry_count) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
     )
-    .bind(m.id, m.name, m.url, m.interval_minutes, m.timeout_ms, m.alert_webhook, m.expected_status_code ?? null)
+    .bind(m.id, m.name, m.url, m.interval_minutes, m.timeout_ms, m.alert_webhook, m.expected_status_code ?? null, m.retry_count)
     .run();
 }
 

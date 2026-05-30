@@ -12,6 +12,7 @@ export interface Monitor {
   timeout_ms: number;
   alert_webhook: string | null;
   expected_status_code: number | null;
+  retry_count: number;
   created_at: number;
   active: number;
 }
