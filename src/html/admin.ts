@@ -13,7 +13,8 @@ export function renderAdmin(): string {
     *{box-sizing:border-box;margin:0;padding:0}
     body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text)}
     .sidebar{position:fixed;left:0;top:0;bottom:0;width:220px;background:var(--sidebar);color:#94a3b8;padding:1.5rem 1rem;display:flex;flex-direction:column;gap:.25rem}
-    .sidebar h1{color:#f1f5f9;font-size:.95rem;font-weight:700;margin-bottom:1rem;letter-spacing:.02em}
+    .sidebar h1{display:flex;align-items:center;gap:.5rem;color:#f1f5f9;font-size:.95rem;font-weight:700;margin-bottom:1rem;letter-spacing:.02em}
+    .sidebar-logo{height:28px;width:28px;border-radius:5px;flex-shrink:0}
     .sidebar a{display:block;padding:.5rem .75rem;border-radius:6px;text-decoration:none;color:#94a3b8;font-size:.875rem;cursor:pointer;transition:all .15s}
     .sidebar a:hover,.sidebar a.active{background:var(--sidebar-hover);color:#f1f5f9}
     .sidebar-footer{margin-top:auto;padding-top:.5rem}
@@ -113,7 +114,7 @@ export function renderAdmin(): string {
 
 <div id="app" style="display:none">
   <div class="sidebar">
-    <h1>&#8593; Uptime Monitor</h1>
+    <h1><img src="https://cloudflare-uptime.andrs.nu/logo.png" class="sidebar-logo" alt="">Uptime Monitor</h1>
     <a class="active" onclick="showPage('monitors',this)">Monitors</a>
     <a onclick="showPage('pages',this)">Status Pages</a>
     <div class="sidebar-footer">${themeToggleBtn('color:#94a3b8')}</div>

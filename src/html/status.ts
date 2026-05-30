@@ -230,7 +230,14 @@ export function renderStatusPage(slug: string, isCustomDomain = false): string {
       '<div class="overall ' + ovClass + '">' + ovIcon + '&nbsp;' + ovText + '</div>' +
       '<div style="margin-bottom:2rem"><div class="sec-label">Services</div>' + items + '</div>' +
       '<div class="incidents-sec"><div class="sec-label" style="display:flex;justify-content:space-between;align-items:center">Past Incidents<a href="${historyHref}" style="font-size:.75rem;color:var(--text-faint);text-decoration:none;font-weight:400;text-transform:none;letter-spacing:0">View full history &rarr;</a></div>' + incidents + '</div>' +
-      '<div class="footer">Last updated ' + new Date(data.generated_at).toUTCString() + ' &nbsp;&middot;&nbsp; <a href="${rssHref}" style="color:var(--text-faint);text-decoration:none" title="Subscribe via RSS">RSS feed</a></div>';
+      '<div class="footer">Last updated ' + new Date(data.generated_at).toUTCString() + ' &nbsp;&middot;&nbsp; <a href="${rssHref}" style="color:var(--text-faint);text-decoration:none" title="Subscribe via RSS">RSS feed</a></div>' +
+      '<div class="footer" style="margin-top:.75rem;display:flex;align-items:center;justify-content:center;gap:.4rem">' +
+        'Hosted for free using' +
+        '&nbsp;<a href="https://cloudflare-uptime.andrs.nu" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:.35rem;color:var(--text-faint);text-decoration:none;font-weight:500">' +
+          '<img src="https://cloudflare-uptime.andrs.nu/logo.png" alt="" height="24" style="display:block;border-radius:4px">' +
+          'Cloudflare Uptime' +
+        '</a>' +
+      '</div>';
   }
 
   load();
