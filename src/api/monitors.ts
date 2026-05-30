@@ -24,6 +24,7 @@ export async function createMonitor(c: Context<{ Bindings: Env }>) {
     timeout_ms?: number;
     alert_webhook?: string;
     expected_status_code?: number;
+    retry_count?: number;
   }>();
 
   if (!body.name || !body.url) {
@@ -39,6 +40,7 @@ export async function createMonitor(c: Context<{ Bindings: Env }>) {
     timeout_ms: body.timeout_ms ?? 10000,
     alert_webhook: body.alert_webhook ?? null,
     expected_status_code: body.expected_status_code ?? null,
+    retry_count: body.retry_count ?? 3,
   });
   return c.json({ id }, 201);
 }
@@ -47,7 +49,7 @@ export async function updateMonitor(c: Context<{ Bindings: Env }>) {
   const id = c.req.param('id');
   if (!id) return c.json({ error: 'missing id' }, 400);
   const body = await c.req.json<Record<string, unknown>>();
-  const allowed = ['name', 'url', 'interval_minutes', 'timeout_ms', 'alert_webhook', 'active', 'expected_status_code'];
+  const allowed = ['name', 'url', 'interval_minutes', 'timeout_ms', 'alert_webhook', 'active', 'expected_status_code', 'retry_count'];
   const updates = Object.fromEntries(
     Object.entries(body).filter(([k]) => allowed.includes(k))
   );
