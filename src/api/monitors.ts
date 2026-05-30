@@ -45,6 +45,7 @@ export async function createMonitor(c: Context<{ Bindings: Env }>) {
 
 export async function updateMonitor(c: Context<{ Bindings: Env }>) {
   const id = c.req.param('id');
+  if (!id) return c.json({ error: 'missing id' }, 400);
   const body = await c.req.json<Record<string, unknown>>();
   const allowed = ['name', 'url', 'interval_minutes', 'timeout_ms', 'alert_webhook', 'active', 'expected_status_code'];
   const updates = Object.fromEntries(
@@ -56,12 +57,14 @@ export async function updateMonitor(c: Context<{ Bindings: Env }>) {
 
 export async function deleteMonitor(c: Context<{ Bindings: Env }>) {
   const id = c.req.param('id');
+  if (!id) return c.json({ error: 'missing id' }, 400);
   await db.deleteMonitor(c.env.DB, id);
   return c.json({ ok: true });
 }
 
 export async function getMonitorChecks(c: Context<{ Bindings: Env }>) {
   const id = c.req.param('id');
+  if (!id) return c.json({ error: 'missing id' }, 400);
   const limit = parseInt(c.req.query('limit') ?? '100', 10);
   const checks = await db.getChecks(c.env.DB, id, limit);
   return c.json(checks);

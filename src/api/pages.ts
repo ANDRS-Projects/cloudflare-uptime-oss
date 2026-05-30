@@ -23,12 +23,16 @@ export async function createPage(c: Context<{ Bindings: Env }>) {
     name: body.name,
     slug: body.slug,
     description: body.description ?? null,
+    custom_domain: null,
+    logo_url: null,
+    incident_history_days: 30,
   });
   return c.json({ id }, 201);
 }
 
 export async function updatePage(c: Context<{ Bindings: Env }>) {
   const id = c.req.param('id');
+  if (!id) return c.json({ error: 'missing id' }, 400);
   const body = await c.req.json<Record<string, unknown>>();
   const allowed = ['name', 'slug', 'description', 'custom_domain', 'logo_url', 'incident_history_days'];
   const updates = Object.fromEntries(
@@ -40,18 +44,21 @@ export async function updatePage(c: Context<{ Bindings: Env }>) {
 
 export async function deletePage(c: Context<{ Bindings: Env }>) {
   const id = c.req.param('id');
+  if (!id) return c.json({ error: 'missing id' }, 400);
   await db.deleteStatusPage(c.env.DB, id);
   return c.json({ ok: true });
 }
 
 export async function getPageMonitors(c: Context<{ Bindings: Env }>) {
   const id = c.req.param('id');
+  if (!id) return c.json({ error: 'missing id' }, 400);
   const monitors = await db.getStatusPageMonitors(c.env.DB, id);
   return c.json(monitors);
 }
 
 export async function addMonitorToPage(c: Context<{ Bindings: Env }>) {
   const pageId = c.req.param('id');
+  if (!pageId) return c.json({ error: 'missing id' }, 400);
   const body = await c.req.json<{ monitor_id: string; display_order?: number }>();
 
   if (!body.monitor_id) {

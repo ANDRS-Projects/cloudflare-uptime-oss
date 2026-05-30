@@ -4,6 +4,7 @@ import * as db from '../db';
 
 export async function getPublicIncidentHistory(c: Context<{ Bindings: Env }>) {
   const slug = c.req.param('slug');
+  if (!slug) return c.notFound();
   const page = await db.getStatusPage(c.env.DB, slug);
   if (!page) return c.notFound();
 
@@ -18,6 +19,7 @@ export async function getPublicIncidentHistory(c: Context<{ Bindings: Env }>) {
 
 export async function getPublicStatusPage(c: Context<{ Bindings: Env }>) {
   const slug = c.req.param('slug');
+  if (!slug) return c.notFound();
   const page = await db.getStatusPage(c.env.DB, slug);
 
   if (!page) return c.notFound();

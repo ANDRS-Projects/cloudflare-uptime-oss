@@ -1,6 +1,6 @@
 import type { Env, Monitor } from './types';
 import * as db from './db';
-import { runCheck } from './checks';
+import { checkWithRetry } from './checks';
 import { sendAlert } from './alerts';
 
 export async function runCronJob(env: Env): Promise<void> {
@@ -22,7 +22,7 @@ export async function runCronJob(env: Env): Promise<void> {
 }
 
 async function checkMonitor(env: Env, monitor: Monitor): Promise<void> {
-  const result = await runCheck(monitor);
+  const result = await checkWithRetry(monitor);
   await db.createCheck(env.DB, monitor.id, result);
 
   const openIncident = await db.getOpenIncident(env.DB, monitor.id);
