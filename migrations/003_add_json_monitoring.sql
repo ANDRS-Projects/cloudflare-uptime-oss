@@ -1,0 +1,3 @@
+ALTER TABLE monitors ADD COLUMN json_path TEXT;
+ALTER TABLE monitors ADD COLUMN json_status_map TEXT;
+ALTER TABLE checks ADD COLUMN degraded INTEGER NOT NULL DEFAULT 0;

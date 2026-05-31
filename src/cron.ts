@@ -27,7 +27,7 @@ async function checkMonitor(env: Env, monitor: Monitor): Promise<void> {
 
   const openIncident = await db.getOpenIncident(env.DB, monitor.id);
 
-  if (!result.ok && !openIncident) {
+  if (!result.ok && !result.degraded && !openIncident) {
     await db.createIncident(
       env.DB,
       monitor.id,
@@ -35,7 +35,7 @@ async function checkMonitor(env: Env, monitor: Monitor): Promise<void> {
       result.error
     );
     await sendAlert(monitor, false);
-  } else if (result.ok && openIncident) {
+  } else if (result.ok && !result.degraded && openIncident) {
     await db.resolveIncident(env.DB, openIncident.id);
     await sendAlert(monitor, true);
   }

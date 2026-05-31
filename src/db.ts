@@ -15,9 +15,9 @@ export async function createMonitor(
 ): Promise<void> {
   await db
     .prepare(
-      'INSERT INTO monitors (id, name, url, interval_minutes, timeout_ms, alert_webhook, expected_status_code, retry_count) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+      'INSERT INTO monitors (id, name, url, interval_minutes, timeout_ms, alert_webhook, expected_status_code, retry_count, json_path, json_status_map) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
     )
-    .bind(m.id, m.name, m.url, m.interval_minutes, m.timeout_ms, m.alert_webhook, m.expected_status_code ?? null, m.retry_count)
+    .bind(m.id, m.name, m.url, m.interval_minutes, m.timeout_ms, m.alert_webhook, m.expected_status_code ?? null, m.retry_count, m.json_path ?? null, m.json_status_map ?? null)
     .run();
 }
 
@@ -63,9 +63,9 @@ export async function createCheck(
 ): Promise<void> {
   await db
     .prepare(
-      'INSERT INTO checks (monitor_id, status_code, ok, latency_ms, error) VALUES (?, ?, ?, ?, ?)'
+      'INSERT INTO checks (monitor_id, status_code, ok, degraded, latency_ms, error, json_value) VALUES (?, ?, ?, ?, ?, ?, ?)'
     )
-    .bind(monitorId, result.status_code, result.ok ? 1 : 0, result.latency_ms, result.error)
+    .bind(monitorId, result.status_code, result.ok ? 1 : 0, result.degraded ? 1 : 0, result.latency_ms, result.error, result.json_value ?? null)
     .run();
 }
 

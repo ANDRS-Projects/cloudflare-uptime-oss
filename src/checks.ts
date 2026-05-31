@@ -14,6 +14,13 @@ export async function checkWithRetry(monitor: Monitor): Promise<CheckResult> {
   return last;
 }
 
+function resolvePath(obj: unknown, path: string): unknown {
+  return path.split('.').reduce((cur, key) => {
+    if (cur != null && typeof cur === 'object') return (cur as Record<string, unknown>)[key];
+    return undefined;
+  }, obj);
+}
+
 export async function runCheck(monitor: Monitor): Promise<CheckResult> {
   const start = Date.now();
   try {
@@ -28,22 +35,49 @@ export async function runCheck(monitor: Monitor): Promise<CheckResult> {
     });
     clearTimeout(timeoutId);
 
-    const ok = monitor.expected_status_code != null
+    const statusOk = monitor.expected_status_code != null
       ? response.status === monitor.expected_status_code
       : response.status >= 200 && response.status < 400;
-    return {
-      ok,
-      status_code: response.status,
-      latency_ms: Date.now() - start,
-      error: null,
-    };
+
+    if (!statusOk) {
+      return { ok: false, degraded: false, status_code: response.status, latency_ms: Date.now() - start, error: null, json_value: null };
+    }
+
+    if (monitor.json_path && monitor.json_status_map) {
+      let body: unknown;
+      try {
+        body = await response.json();
+      } catch {
+        return { ok: false, degraded: false, status_code: response.status, latency_ms: Date.now() - start, error: 'Failed to parse JSON response', json_value: null };
+      }
+      const value = String(resolvePath(body, monitor.json_path) ?? '');
+      let map: Record<string, string>;
+      try {
+        map = JSON.parse(monitor.json_status_map);
+      } catch {
+        return { ok: false, degraded: false, status_code: response.status, latency_ms: Date.now() - start, error: 'Invalid json_status_map config', json_value: null };
+      }
+      const mapped = map[value] ?? 'down';
+      return {
+        ok: mapped === 'up' || mapped === 'degraded',
+        degraded: mapped === 'degraded',
+        status_code: response.status,
+        latency_ms: Date.now() - start,
+        error: mapped === 'down' ? `JSON status: ${value}` : null,
+        json_value: value,
+      };
+    }
+
+    return { ok: true, degraded: false, status_code: response.status, latency_ms: Date.now() - start, error: null, json_value: null };
   } catch (err) {
     const isTimeout = err instanceof Error && err.name === 'AbortError';
     return {
       ok: false,
+      degraded: false,
       status_code: 0,
       latency_ms: isTimeout ? monitor.timeout_ms : Date.now() - start,
       error: isTimeout ? 'Request timed out' : err instanceof Error ? err.message : 'Unknown error',
+      json_value: null,
     };
   }
 }

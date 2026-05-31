@@ -180,6 +180,18 @@ export function renderAdmin(): string {
       </select>
     </div>
     <div class="fg"><label>Alert Webhook (Slack / Discord / custom)</label><input id="m-webhook" type="url" placeholder="https://hooks.slack.com/..."></div>
+    <div class="fg">
+      <label>JSON Monitoring (optional)</label>
+      <select id="m-json-preset" onchange="applyJsonPreset(this.value)">
+        <option value="">— None —</option>
+        <option value="statuspage">Statuspage.io (Anthropic, GitHub, etc.)</option>
+        <option value="custom">Custom</option>
+      </select>
+    </div>
+    <div id="m-json-fields" style="display:none">
+      <div class="fg"><label>JSON Path</label><input id="m-json-path" type="text" placeholder="status.indicator"></div>
+      <div class="fg"><label>JSON Status Map</label><input id="m-json-map" type="text" placeholder='{"none":"up","minor":"degraded","critical":"down"}'></div>
+    </div>
     <div class="mf">
       <button class="btn btn-ghost" onclick="closeMonitorModal()">Cancel</button>
       <button class="btn btn-primary" onclick="saveMonitor()">Save Monitor</button>
@@ -271,6 +283,24 @@ export function renderAdmin(): string {
     el.classList.add('active');
   }
 
+  const STATUSPAGE_PATH = 'status.indicator';
+  const STATUSPAGE_MAP = '{"none":"up","minor":"degraded","major":"degraded","critical":"down"}';
+
+  function applyJsonPreset(preset) {
+    const fields = document.getElementById('m-json-fields');
+    if (preset === '') {
+      fields.style.display = 'none';
+      document.getElementById('m-json-path').value = '';
+      document.getElementById('m-json-map').value = '';
+    } else if (preset === 'statuspage') {
+      fields.style.display = '';
+      document.getElementById('m-json-path').value = STATUSPAGE_PATH;
+      document.getElementById('m-json-map').value = STATUSPAGE_MAP;
+    } else {
+      fields.style.display = '';
+    }
+  }
+
   function openMonitorModal(m = null) {
     editingId = m?.id || null;
     document.getElementById('mm-title').textContent = m ? 'Edit Monitor' : 'Add Monitor';
@@ -281,6 +311,13 @@ export function renderAdmin(): string {
     document.getElementById('m-expected-status').value = m?.expected_status_code || '';
     document.getElementById('m-retry-count').value = m?.retry_count ?? 3;
     document.getElementById('m-webhook').value = m?.alert_webhook || '';
+    const hasJson = !!(m?.json_path);
+    const isStatuspage = m?.json_path === STATUSPAGE_PATH && m?.json_status_map === STATUSPAGE_MAP;
+    const preset = !hasJson ? '' : isStatuspage ? 'statuspage' : 'custom';
+    document.getElementById('m-json-preset').value = preset;
+    document.getElementById('m-json-fields').style.display = hasJson ? '' : 'none';
+    document.getElementById('m-json-path').value = m?.json_path || '';
+    document.getElementById('m-json-map').value = m?.json_status_map || '';
     document.getElementById('monitor-modal').classList.add('open');
   }
 
@@ -298,8 +335,11 @@ export function renderAdmin(): string {
       expected_status_code: parseInt(document.getElementById('m-expected-status').value) || null,
       retry_count: parseInt(document.getElementById('m-retry-count').value),
       alert_webhook: document.getElementById('m-webhook').value.trim() || null,
+      json_path: document.getElementById('m-json-path').value.trim() || null,
+      json_status_map: (() => { try { const v = document.getElementById('m-json-map').value.trim(); return v ? JSON.parse(v) : null; } catch { return '__invalid__'; } })(),
     };
     if (!data.name || !data.url) { toast('Name and URL are required', 'error'); return; }
+    if (data.json_status_map === '__invalid__') { toast('JSON Status Map is not valid JSON', 'error'); return; }
     if (editingId) {
       await api('/api/monitors/' + editingId, { method: 'PUT', body: JSON.stringify(data) });
       toast('Monitor updated');
@@ -574,21 +614,27 @@ export function renderAdmin(): string {
       document.getElementById('hm-body').innerHTML = '<div style="text-align:center;padding:2rem;color:var(--text-faint)">No checks recorded yet.</div>';
       return;
     }
+    const hasJson = checks.some(c => c.json_value != null);
     const rows = checks.map(c => {
       const ok = c.ok === 1;
+      const deg = c.degraded === 1;
+      const dotState = ok ? (deg ? 'degraded' : 'up') : 'down';
       const lat = c.latency_ms != null ? c.latency_ms + ' ms' : '&mdash;';
       const code = c.status_code || '&mdash;';
       const err = c.error ? '<span class="herr">' + esc(c.error) + '</span>' : '';
+      const jv = hasJson ? '<td>' + (c.json_value != null ? '<code style="font-size:.75rem">' + esc(c.json_value) + '</code>' : '&mdash;') + '</td>' : '';
       return '<tr class="' + (ok ? '' : 'hrow-down') + '">' +
         '<td class="htime">' + ago(c.checked_at) + '</td>' +
-        '<td><div class="dot dot-' + (ok ? 'up' : 'down') + '" style="width:8px;height:8px;display:inline-block"></div></td>' +
+        '<td><div class="dot dot-' + dotState + '" style="width:8px;height:8px;display:inline-block"></div></td>' +
         '<td>' + code + '</td>' +
         '<td>' + lat + '</td>' +
+        jv +
         '<td>' + err + '</td>' +
         '</tr>';
     }).join('');
+    const jsonHeader = hasJson ? '<th>JSON Value</th>' : '';
     document.getElementById('hm-body').innerHTML =
-      '<table class="htable"><thead><tr><th>Time</th><th></th><th>HTTP</th><th>Latency</th><th>Error</th></tr></thead><tbody>' + rows + '</tbody></table>';
+      '<table class="htable"><thead><tr><th>Time</th><th></th><th>HTTP</th><th>Latency</th>' + jsonHeader + '<th>Error</th></tr></thead><tbody>' + rows + '</tbody></table>';
   }
 
   function closeHistoryModal() {

@@ -40,13 +40,14 @@ export function renderStatusPage(slug: string, isCustomDomain = false): string {
     .sbadge{display:inline-flex;align-items:center;gap:.35rem;font-size:.8rem;font-weight:500;padding:.2rem .6rem;border-radius:20px}
     .s-up{background:var(--green-bg);color:var(--green)}
     .s-down{background:var(--red-bg);color:var(--red-text)}
+    .s-degraded{background:var(--yellow-bg);color:var(--yellow-text)}
     .s-unknown{background:var(--bg);color:var(--text-faint)}
     .sdot{width:6px;height:6px;border-radius:50%}
-    .sdot-up{background:#22c55e}.sdot-down{background:#ef4444}.sdot-unknown{background:#94a3b8}
+    .sdot-up{background:#22c55e}.sdot-down{background:#ef4444}.sdot-degraded{background:#f59e0b}.sdot-unknown{background:#94a3b8}
     .uptime-bar{display:flex;gap:1.5px;height:28px;align-items:stretch}
     .bkt{flex:1;border-radius:2px;cursor:default}
     .bkt:hover{opacity:.7}
-    .bkt-up{background:#86efac}.bkt-down{background:#fca5a5}.bkt-unknown{background:var(--border)}
+    .bkt-up{background:#86efac}.bkt-down{background:#fca5a5}.bkt-degraded{background:#fde68a}.bkt-unknown{background:var(--border)}
     .bar-foot{display:flex;justify-content:space-between;font-size:.7rem;color:var(--text-faint);margin-top:.35rem}
     .graph-wrap{margin-top:.75rem}
     .graph-label{font-size:.7rem;color:var(--text-faint);margin-bottom:.2rem}
@@ -145,17 +146,19 @@ export function renderStatusPage(slug: string, isCustomDomain = false): string {
     const { page, monitors, notices } = data;
 
     const anyDown = monitors.some(m => m.current_status === 'down');
+    const anyDegraded = monitors.some(m => m.current_status === 'degraded');
     const allUp = monitors.length > 0 && monitors.every(m => m.current_status === 'up');
-    const ovClass = anyDown ? 'has-issues' : allUp ? 'all-good' : 'partial';
-    const ovIcon = anyDown ? '&#128308;' : allUp ? '&#9989;' : '&#9888;&#65039;';
+    const ovClass = anyDown ? 'has-issues' : (anyDegraded ? 'partial' : (allUp ? 'all-good' : 'partial'));
+    const ovIcon = anyDown ? '&#128308;' : anyDegraded ? '&#9888;&#65039;' : allUp ? '&#9989;' : '&#9888;&#65039;';
     const ovText = anyDown ? 'Some systems are experiencing issues'
+      : anyDegraded ? 'Some systems are degraded'
       : allUp ? 'All systems operational'
       : 'Checking systems&hellip;';
 
     const items = monitors.map(m => {
       const sc = 's-' + m.current_status;
       const dc = 'sdot-' + m.current_status;
-      const sl = m.current_status === 'up' ? 'Operational' : m.current_status === 'down' ? 'Down' : 'No data';
+      const sl = m.current_status === 'up' ? 'Operational' : m.current_status === 'down' ? 'Down' : m.current_status === 'degraded' ? 'Degraded' : 'No data';
       return '<div class="mitem">' +
         '<div class="mtop">' +
         '<span class="mname">' + esc(m.name) + '</span>' +

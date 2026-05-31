@@ -41,7 +41,7 @@ export async function getPublicStatusPage(c: Context<{ Bindings: Env }>) {
         id: m.id,
         name: m.name,
         url: m.url,
-        current_status: latest ? (latest.ok ? 'up' : 'down') : 'unknown',
+        current_status: latest ? (latest.ok ? (latest.degraded ? 'degraded' : 'up') : 'down') : 'unknown',
         uptime_30d: uptime30,
         uptime_7d: uptime7,
         latency_ms: latest?.latency_ms ?? null,
@@ -75,6 +75,8 @@ function buildUptimeBuckets(checks: Check[], count: number): string[] {
       (c) => c.checked_at >= bucketStart && c.checked_at < bucketEnd
     );
     if (inBucket.length === 0) return 'unknown';
-    return inBucket.some((c) => c.ok === 0) ? 'down' : 'up';
+    if (inBucket.some((c) => c.ok === 0)) return 'down';
+    if (inBucket.some((c) => c.degraded === 1)) return 'degraded';
+    return 'up';
   });
 }
