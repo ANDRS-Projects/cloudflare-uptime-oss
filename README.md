@@ -35,7 +35,9 @@ Self-hosted uptime monitoring on Cloudflare Workers with public status pages —
 - **Custom logo per page** — upload a logo to R2; served through the Worker with immutable cache headers
 - **Custom domain routing** — each status page can be served on its own domain via `wrangler.toml` routes
 - **Expected status code** — configure the expected HTTP response code per monitor (useful for endpoints that intentionally return 201, 204, 301, or any non-200 status)
-- **Admin dashboard** — add/edit/delete monitors and status pages, view check history
+- **JSON payload monitoring** — extract a field from the JSON response body and map its value to `up`, `degraded`, or `down`; built-in Statuspage.io preset covers Anthropic, GitHub, and any other Statuspage.io-powered status page out of the box
+- **Degraded state** — yellow third state between green and red; degraded monitors appear on the status page without opening incidents or firing alerts
+- **Admin dashboard** — add/edit/delete monitors and status pages, view check history with extracted JSON values per check
 - **Dark mode** — full light / dark / system theme support across the admin dashboard, status pages, and history pages; toggle persists via `localStorage`
 - **Slack and Discord webhook alerts** — per-monitor webhooks fire on incident open and close
 - **Maintenance notices** — create notices that appear on status pages; resolved notices stay visible for 24 hours with a "Resolved" badge
@@ -228,6 +230,8 @@ There is no traditional `.env` file — see `.env.example` for a full annotated 
 | `expected_status_code` | Expected HTTP response code (optional — leave blank to accept any 2xx–3xx) |
 | `retry_count` | Total check attempts before marking a site down (default: 3 — each failed attempt waits 2 s before retrying, so 3 attempts = up to 4 s before an incident fires) |
 | `alert_webhook` | Slack or Discord incoming webhook URL for up/down alerts |
+| `json_path` | Dot-notation path to extract from the JSON response body (e.g. `status.indicator`). Leave blank for plain HTTP monitoring. |
+| `json_status_map` | JSON object mapping extracted values to `up`, `degraded`, or `down` (e.g. `{"none":"up","minor":"degraded","critical":"down"}`). Select the **Statuspage.io** preset in the admin to fill this automatically. |
 
 ### Per-status-page settings (set via admin dashboard)
 
@@ -273,9 +277,17 @@ ALTER TABLE incidents ADD COLUMN trigger_error TEXT;
 ALTER TABLE status_pages ADD COLUMN incident_history_days INTEGER NOT NULL DEFAULT 30;
 ALTER TABLE monitors ADD COLUMN expected_status_code INTEGER;
 ALTER TABLE monitors ADD COLUMN retry_count INTEGER NOT NULL DEFAULT 3;
+ALTER TABLE monitors ADD COLUMN json_path TEXT;
+ALTER TABLE monitors ADD COLUMN json_status_map TEXT;
+ALTER TABLE checks ADD COLUMN degraded INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE checks ADD COLUMN json_value TEXT;
 ```
 
-Migration files for each schema change are also kept in `migrations/` for reference.
+Migration files for each schema change are kept in `migrations/` and can be applied with:
+
+```bash
+npx wrangler d1 migrations apply uptime-monitor --remote
+```
 
 **Custom domains require Cloudflare DNS.**
 `custom_domain = true` in `wrangler.toml` only works when the domain is proxied

@@ -13,6 +13,8 @@ export interface Monitor {
   alert_webhook: string | null;
   expected_status_code: number | null;
   retry_count: number;
+  json_path: string | null;
+  json_status_map: string | null;
   created_at: number;
   active: number;
 }
@@ -22,8 +24,10 @@ export interface Check {
   monitor_id: string;
   status_code: number;
   ok: number;
+  degraded: number;
   latency_ms: number | null;
   error: string | null;
+  json_value: string | null;
   checked_at: number;
 }
 
@@ -68,7 +72,9 @@ export interface Notice {
 
 export interface CheckResult {
   ok: boolean;
+  degraded: boolean;
   status_code: number;
   latency_ms: number | null;
   error: string | null;
+  json_value: string | null;
 }
