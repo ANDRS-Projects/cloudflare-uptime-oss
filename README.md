@@ -161,15 +161,19 @@ Your Worker is now live at `https://cloudflare-uptime.<your-subdomain>.workers.d
 
 ### 8. (Optional) Custom domain routing
 
-To serve a status page on `status.yourdomain.com`, add a `[[routes]]` block to `wrangler.toml`:
+To serve a status page on `status.yourdomain.com`, add an entry to the `routes` array in `wrangler.toml`:
 
 ```toml
-[[routes]]
-pattern = "status.yourdomain.com"
-custom_domain = true
+routes = [
+  { pattern = "status.yourdomain.com", custom_domain = true },
+]
 ```
 
-Then redeploy with `npm run deploy`. The domain must already be on Cloudflare DNS (orange-clouded / proxied). If your domain uses external nameservers, point a CNAME at your `.workers.dev` URL instead — `custom_domain = true` will not work in that case.
+You can add as many subdomains as you like — each status page can have its own domain. Then redeploy with `npm run deploy`.
+
+**Do not create DNS records manually.** Wrangler creates and manages the DNS record for you automatically on deploy. If you pre-create a record, the deploy will fail with a `code: 100117` error — delete the manually created record in the Cloudflare dashboard first, then redeploy.
+
+The domain's zone must be on Cloudflare DNS (i.e. your domain uses Cloudflare nameservers). If your domain uses external nameservers, point a CNAME at your `.workers.dev` URL instead and omit `custom_domain = true`.
 
 ### 9. (Optional) Set up CI/CD
 
@@ -289,10 +293,11 @@ Migration files for each schema change are kept in `migrations/` and can be appl
 npx wrangler d1 migrations apply uptime-monitor --remote
 ```
 
-**Custom domains require Cloudflare DNS.**
-`custom_domain = true` in `wrangler.toml` only works when the domain is proxied
-(orange-clouded) through Cloudflare DNS. For domains on external nameservers,
-use a CNAME pointing to your `.workers.dev` URL and omit `custom_domain`.
+**Custom domains require Cloudflare DNS — and no pre-created DNS records.**
+`custom_domain = true` in `wrangler.toml` only works when the domain's zone is on Cloudflare DNS.
+Wrangler creates the DNS record automatically on deploy — do not create it manually first or the
+deploy will fail with `code: 100117`. For domains on external nameservers, use a CNAME pointing
+to your `.workers.dev` URL and omit `custom_domain`.
 
 **Cron triggers run from a single datacenter.**
 Cloudflare cron triggers fire from the datacenter nearest to your D1 region — not
