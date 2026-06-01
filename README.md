@@ -173,6 +173,8 @@ You can add as many subdomains as you like — each status page can have its own
 
 **Do not create DNS records manually.** Wrangler creates and manages the DNS record for you automatically on deploy. If you pre-create a record, the deploy will fail with a `code: 100117` error — delete the manually created record in the Cloudflare dashboard first, then redeploy.
 
+**Always commit `wrangler.toml` before deploying via CI.** If you add a domain and run `npm run deploy` locally without committing, the domain will work — but the next CI deploy will use the committed `wrangler.toml` (without your new route) and Wrangler will remove the DNS record, causing a 1016 Origin DNS error. Commit and push `wrangler.toml` changes alongside any local deploy.
+
 The domain's zone must be on Cloudflare DNS (i.e. your domain uses Cloudflare nameservers). If your domain uses external nameservers, point a CNAME at your `.workers.dev` URL instead and omit `custom_domain = true`.
 
 ### 9. (Optional) Set up CI/CD
