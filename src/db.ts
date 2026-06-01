@@ -210,7 +210,7 @@ export async function getStatusPageMonitors(
       `SELECT m.* FROM monitors m
        JOIN status_page_monitors spm ON spm.monitor_id = m.id
        WHERE spm.status_page_id = ?
-       ORDER BY spm.display_order ASC`
+       ORDER BY m.name ASC`
     )
     .bind(pageId)
     .all<Monitor>();
