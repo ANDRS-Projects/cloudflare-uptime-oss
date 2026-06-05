@@ -33,7 +33,7 @@ export async function getPublicStatusPage(c: Context<{ Bindings: Env }>) {
         db.getUptimePercent(c.env.DB, m.id, 30),
         db.getUptimePercent(c.env.DB, m.id, 7),
         db.getIncidents(c.env.DB, m.id, 5),
-        db.getChecks(c.env.DB, m.id, 500),
+        db.getChecks(c.env.DB, m.id),
         db.getLatencyBuckets(c.env.DB, m.id),
       ]);
 
