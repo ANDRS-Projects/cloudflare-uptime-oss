@@ -45,10 +45,10 @@ export async function createMonitor(c: Context<{ Bindings: Env }>) {
     name: body.name,
     url: body.url,
     interval_minutes: body.interval_minutes ?? 1,
-    timeout_ms: body.timeout_ms ?? 10000,
+    timeout_ms: body.timeout_ms ?? 5000,
     alert_webhook: body.alert_webhook ?? null,
     expected_status_code: body.expected_status_code ?? null,
-    retry_count: body.retry_count ?? 3,
+    retry_count: body.retry_count ?? 2,
     json_path: body.json_path ?? null,
     json_status_map: body.json_status_map ? JSON.stringify(body.json_status_map) : null,
   });
