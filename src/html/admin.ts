@@ -166,15 +166,15 @@ export function renderAdmin(): string {
           <option value="30">Every 30 minutes</option>
         </select>
       </div>
-      <div class="fg"><label>Timeout (ms)</label><input id="m-timeout" type="number" value="10000" min="1000" max="30000"></div>
+      <div class="fg"><label>Timeout (ms)</label><input id="m-timeout" type="number" value="5000" min="1000" max="30000"></div>
     </div>
     <div class="fg"><label>Expected Status Code (optional, e.g. 401)</label><input id="m-expected-status" type="number" placeholder="Leave blank for any 2xx–3xx" min="100" max="599"></div>
     <div class="fg">
       <label>Attempts before marking down</label>
       <select id="m-retry-count">
         <option value="1">1 — no retries</option>
-        <option value="2">2</option>
-        <option value="3" selected>3 (default)</option>
+        <option value="2" selected>2 (default)</option>
+        <option value="3">3</option>
         <option value="4">4</option>
         <option value="5">5</option>
       </select>
@@ -307,9 +307,9 @@ export function renderAdmin(): string {
     document.getElementById('m-name').value = m?.name || '';
     document.getElementById('m-url').value = m?.url || '';
     document.getElementById('m-interval').value = m?.interval_minutes || '1';
-    document.getElementById('m-timeout').value = m?.timeout_ms || '10000';
+    document.getElementById('m-timeout').value = m?.timeout_ms || '5000';
     document.getElementById('m-expected-status').value = m?.expected_status_code || '';
-    document.getElementById('m-retry-count').value = m?.retry_count ?? 3;
+    document.getElementById('m-retry-count').value = m?.retry_count ?? 2;
     document.getElementById('m-webhook').value = m?.alert_webhook || '';
     const hasJson = !!(m?.json_path);
     const isStatuspage = m?.json_path === STATUSPAGE_PATH && m?.json_status_map === STATUSPAGE_MAP;
