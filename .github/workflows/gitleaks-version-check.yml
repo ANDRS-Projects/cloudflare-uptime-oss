@@ -1,0 +1,51 @@
+name: Check for newer Gitleaks release
+
+# gitleaks.yml pins GITLEAKS_VERSION to a fixed release instead of resolving "latest" at
+# scan time, because that API lookup is prone to rate-limiting/404s on CI runners (see
+# the gitleaks.yml history of this repo). This workflow keeps that pin from
+# going stale by checking monthly and opening a PR when a newer release is available — the
+# same unauthenticated API call, but now off the blocking push/PR scan path, so an occasional
+# rate-limit just means "try again next month" instead of failing every PR.
+
+on:
+  schedule:
+    - cron: '0 6 1 * *'  # 06:00 UTC on the 1st of each month
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  check-version:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compare pinned vs. latest Gitleaks release
+        id: check
+        run: |
+          CURRENT=$(grep -oP 'GITLEAKS_VERSION:\s*\K[0-9.]+' .github/workflows/gitleaks.yml)
+          LATEST=$(curl -s https://api.github.com/repos/gitleaks/gitleaks/releases/latest | grep -m1 '"tag_name"' | cut -d'"' -f4 | tr -d v)
+          echo "current=$CURRENT" >> "$GITHUB_OUTPUT"
+          echo "latest=$LATEST" >> "$GITHUB_OUTPUT"
+
+      - name: Bump the pinned version
+        if: steps.check.outputs.latest != '' && steps.check.outputs.latest != steps.check.outputs.current
+        run: |
+          sed -i "s/GITLEAKS_VERSION: .*/GITLEAKS_VERSION: ${{ steps.check.outputs.latest }}/" .github/workflows/gitleaks.yml
+
+      - name: Open PR with the bump
+        if: steps.check.outputs.latest != '' && steps.check.outputs.latest != steps.check.outputs.current
+        uses: peter-evans/create-pull-request@v6
+        with:
+          commit-message: "Bump pinned Gitleaks version to v${{ steps.check.outputs.latest }}"
+          title: "Bump pinned Gitleaks version to v${{ steps.check.outputs.latest }}"
+          body: |
+            Automated check found a newer Gitleaks release than the version pinned in
+            `.github/workflows/gitleaks.yml` (`v${{ steps.check.outputs.current }}` →
+            `v${{ steps.check.outputs.latest }}`). Review the
+            [release notes](https://github.com/gitleaks/gitleaks/releases/tag/v${{ steps.check.outputs.latest }})
+            before merging.
+          branch: bump-gitleaks-version
+          delete-branch: true
