@@ -15,10 +15,13 @@ jobs:
         with:
           fetch-depth: 0  # full history so Gitleaks can scan all commits
 
+      # Pinned to a fixed version rather than resolved via the GitHub releases API,
+      # since that "latest" lookup is prone to rate-limiting/404s on CI runners.
       - name: Install Gitleaks
+        env:
+          GITLEAKS_VERSION: 8.30.1
         run: |
-          VERSION=$(curl -s https://api.github.com/repos/gitleaks/gitleaks/releases/latest | grep tag_name | cut -d'"' -f4 | tr -d v)
-          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/latest/download/gitleaks_${VERSION}_linux_x64.tar.gz" | tar -xz -C /usr/local/bin gitleaks
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" | tar -xz -C /usr/local/bin gitleaks
 
       - name: Run Gitleaks
         run: gitleaks detect --source . --exit-code 1
