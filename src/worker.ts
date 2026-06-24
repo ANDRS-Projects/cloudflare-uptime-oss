@@ -68,7 +68,8 @@ app.post('/api/pages/:id/logo', uploadLogo);
 app.delete('/api/pages/:id/logo', deleteLogo);
 
 // ── Public routes (no auth) ──────────────────────────────────────────────────
-app.get('/assets/*', async (c) => {
+app.get('/assets/*', async (c, next) => {
+  if (!c.env.ASSETS) return next();
   const key = c.req.path.replace('/assets/', '');
   const obj = await c.env.ASSETS.get(key);
   if (!obj) return c.notFound();
@@ -85,7 +86,7 @@ app.get('/status/:slug/history/data', getPublicIncidentHistory);
 app.get('/status/:slug/history', (c) => c.html(renderHistoryPage(c.req.param('slug'))));
 app.get('/status/:slug/rss', getStatusPageRSS);
 app.get('/status/:slug', (c) => c.html(renderStatusPage(c.req.param('slug'))));
-app.get('/', (c) => c.html(renderAdmin()));
+app.get('/', (c) => c.html(renderAdmin(!!c.env.ASSETS)));
 
 export default {
   fetch: app.fetch,

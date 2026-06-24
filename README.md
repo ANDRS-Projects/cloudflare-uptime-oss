@@ -26,13 +26,13 @@ Self-hosted uptime monitoring on Cloudflare Workers with public status pages —
 
 ## Features
 
-- **Multi-monitor support** — track any HTTP endpoint with configurable check intervals and timeouts
+- **Multi-monitor support** — track any HTTP endpoint or TCP socket (via `tcp://`) with configurable check intervals and timeouts
 - **Public status pages** — shareable `/status/:slug` pages with live up/down status per monitor
 - **90-day latency history** — sparkline graph built from the rolling check history
 - **Incident timeline** — timestamped incidents with human-readable failure reasons (HTTP status badge + description, timeout label, or raw error)
 - **Incident history page** — `/status/:slug/history` lists all incidents grouped by month with collapsible sections; history window (30 or 90 days) is configurable per status page from the admin dashboard
 - **RSS feed** — `/status/:slug/rss` for incident subscribers
-- **Custom logo per page** — upload a logo to R2; served through the Worker with immutable cache headers
+- **Custom logo per page** — (Optional) upload a logo to R2; served through the Worker with immutable cache headers
 - **Custom domain routing** — each status page can be served on its own domain via `wrangler.toml` routes
 - **Expected status code** — configure the expected HTTP response code per monitor (useful for endpoints that intentionally return 201, 204, 301, or any non-200 status)
 - **JSON payload monitoring** — extract a field from the JSON response body and map its value to `up`, `degraded`, or `down`; built-in Statuspage.io preset covers Anthropic, GitHub, and any other Statuspage.io-powered status page out of the box
@@ -123,7 +123,9 @@ npm run db:init:remote
 
 > **Important:** `wrangler deploy` does NOT apply `schema.sql` automatically. You must run this step manually on first deploy. For subsequent schema changes, run `ALTER TABLE` statements directly via the Cloudflare D1 Console.
 
-### 5. Create the R2 bucket
+### 5. Create the R2 bucket (Optional)
+
+R2 storage is only required if you want to upload custom logos for your status pages. If you skip this, the logo upload feature will be automatically disabled in the admin dashboard.
 
 ```bash
 npx wrangler r2 bucket create uptime-assets
@@ -230,7 +232,7 @@ There is no traditional `.env` file — see `.env.example` for a full annotated 
 
 | Field | Description |
 |-------|-------------|
-| `url` | The HTTP(S) endpoint to monitor |
+| `url` | The HTTP(S) endpoint or TCP socket (e.g., `tcp://example.com:5432`) to monitor |
 | `interval_minutes` | How often to check (1, 5, 10, 15, 30, 60) |
 | `timeout_ms` | Request timeout in milliseconds (default: 10000) |
 | `expected_status_code` | Expected HTTP response code (optional — leave blank to accept any 2xx–3xx) |

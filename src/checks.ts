@@ -1,4 +1,5 @@
 import type { Monitor, CheckResult } from './types';
+import { connect } from 'cloudflare:sockets';
 
 const RETRY_DELAY_MS = 2000;
 
@@ -23,6 +24,49 @@ function resolvePath(obj: unknown, path: string): unknown {
 
 export async function runCheck(monitor: Monitor): Promise<CheckResult> {
   const start = Date.now();
+
+  if (monitor.url.startsWith('tcp://')) {
+    try {
+      const url = new URL(monitor.url);
+      const hostname = url.hostname;
+      const port = parseInt(url.port, 10);
+      if (!hostname || isNaN(port)) {
+        return { ok: false, degraded: false, status_code: 0, latency_ms: 0, error: 'Invalid TCP URL', json_value: null };
+      }
+
+      const socket = connect({ hostname, port });
+      
+      let timeoutId: ReturnType<typeof setTimeout>;
+      const timeoutPromise = new Promise((_, reject) => {
+        timeoutId = setTimeout(() => reject(new Error('Timeout')), monitor.timeout_ms);
+      });
+
+      try {
+        await Promise.race([
+          socket.opened,
+          timeoutPromise
+        ]);
+        clearTimeout(timeoutId!);
+        socket.close();
+        return { ok: true, degraded: false, status_code: 0, latency_ms: Date.now() - start, error: null, json_value: null };
+      } catch (err) {
+        clearTimeout(timeoutId!);
+        socket.close();
+        throw err;
+      }
+    } catch (err) {
+      const isTimeout = err instanceof Error && err.message === 'Timeout';
+      return {
+        ok: false,
+        degraded: false,
+        status_code: 0,
+        latency_ms: isTimeout ? monitor.timeout_ms : Date.now() - start,
+        error: isTimeout ? 'Request timed out' : err instanceof Error ? err.message : 'Unknown error',
+        json_value: null,
+      };
+    }
+  }
+
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), monitor.timeout_ms);

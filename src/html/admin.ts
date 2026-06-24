@@ -1,6 +1,6 @@
 import { themeHeadScript, themeCssVars, themeToggleBtn, themeBodyScript } from './theme.js';
 
-export function renderAdmin(): string {
+export function renderAdmin(hasAssets: boolean): string {
   return /* html */ `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -155,7 +155,7 @@ export function renderAdmin(): string {
   <div class="modal">
     <h3 id="mm-title">Add Monitor</h3>
     <div class="fg"><label>Name</label><input id="m-name" type="text" placeholder="My Website"></div>
-    <div class="fg"><label>URL</label><input id="m-url" type="url" placeholder="https://example.com"></div>
+    <div class="fg"><label>URL</label><input id="m-url" type="text" placeholder="https://... or tcp://..."></div>
     <div class="frow">
       <div class="fg">
         <label>Check Interval</label>
@@ -242,6 +242,7 @@ export function renderAdmin(): string {
   let pages = [];
   let editingId = null;
   let noticePageId = null;
+  const HAS_ASSETS = ${hasAssets};
 
   function api(path, opts = {}) {
     return fetch(path, {
@@ -561,9 +562,10 @@ export function renderAdmin(): string {
         '<button class="btn btn-danger btn-sm" onclick="deletePage(pages[' + pi + '].id)">Delete</button>' +
         '</div></div>' +
         '<div class="domain-row">' +
-        (p.logo_url
+        (HAS_ASSETS ? (p.logo_url
           ? '<img src="' + esc(p.logo_url) + '" alt="logo" style="height:22px;max-width:80px;object-fit:contain;border-radius:3px"><span class="domain-val" style="font-size:.78rem">Logo set</span><button class="btn btn-ghost btn-sm" onclick="removeLogo(' + pi + ')">Remove</button>'
-          : '<input id="logo-' + pi + '" type="file" accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml" style="font-size:.8rem;flex:1;color:var(--text)"><button class="btn btn-ghost btn-sm" onclick="uploadLogo(' + pi + ')">Upload</button>') +
+          : '<input id="logo-' + pi + '" type="file" accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml" style="font-size:.8rem;flex:1;color:var(--text)"><button class="btn btn-ghost btn-sm" onclick="uploadLogo(' + pi + ')">Upload</button>')
+        : '<span class="domain-val" style="font-size:.78rem;color:var(--text-faint)">R2 storage not configured (Logo upload disabled)</span>') +
         '</div>' +
         '<div class="domain-row">' +
         (p.custom_domain

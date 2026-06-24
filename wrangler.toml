@@ -10,9 +10,9 @@ workers_dev = true
 #   { pattern = "status.yourdomain.com", custom_domain = true },
 # ]
 
-[[r2_buckets]]
-binding = "ASSETS"
-bucket_name = "uptime-assets"
+#[[r2_buckets]]
+#binding = "ASSETS"
+#bucket_name = "uptime-assets"
 
 # After running `wrangler d1 create uptime-monitor`, paste the database_id here
 [[d1_databases]]

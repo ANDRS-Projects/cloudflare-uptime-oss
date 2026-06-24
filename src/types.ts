@@ -1,7 +1,7 @@
 export interface Env {
   DB: D1Database;
   API_KEY: string;
-  ASSETS: R2Bucket;
+  ASSETS?: R2Bucket;
 }
 
 export interface Monitor {
