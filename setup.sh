@@ -103,18 +103,25 @@ echo -e "${GREEN}Schema applied.${RESET}"
 echo ""
 echo -e "${BOLD}Step 4: Create R2 bucket${RESET}"
 echo ""
+echo "  (Optional: required only for uploading logos)"
+echo ""
 echo "This will create an R2 bucket named 'uptime-assets' for logo uploads."
-echo "Press Enter to continue, or Ctrl-C to skip (if the bucket already exists)."
-read -r
+echo "Press Enter to create it, or type 's' and press Enter to skip."
+read -r R2_SKIP
 
-$WRANGLER r2 bucket create uptime-assets || true
-echo ""
-echo "If you used a different bucket name, update wrangler.toml:"
-echo ""
-echo "  [[r2_buckets]]"
-echo "  binding = \"ASSETS\""
-echo "  bucket_name = \"your-bucket-name\""
-echo ""
+if [[ "$R2_SKIP" != "s" && "$R2_SKIP" != "S" ]]; then
+  $WRANGLER r2 bucket create uptime-assets || true
+  echo ""
+  echo "If you used a different bucket name, update wrangler.toml:"
+  echo ""
+  echo "  [[r2_buckets]]"
+  echo "  binding = \"ASSETS\""
+  echo "  bucket_name = \"your-bucket-name\""
+  echo ""
+else
+  echo -e "${YELLOW}Skipping R2 bucket creation.${RESET}"
+  echo "Note: You can remove or comment out the [[r2_buckets]] section in wrangler.toml."
+fi
 
 # ── API key secret ────────────────────────────────────────────────────────────
 

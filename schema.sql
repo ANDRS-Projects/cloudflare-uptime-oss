@@ -6,6 +6,9 @@ CREATE TABLE IF NOT EXISTS monitors (
   timeout_ms INTEGER NOT NULL DEFAULT 10000,
   alert_webhook TEXT,
   expected_status_code INTEGER,
+  retry_count INTEGER DEFAULT 2,
+  json_path TEXT,
+  json_status_map TEXT,
   created_at INTEGER NOT NULL DEFAULT (unixepoch()),
   active INTEGER NOT NULL DEFAULT 1
 );
@@ -15,8 +18,10 @@ CREATE TABLE IF NOT EXISTS checks (
   monitor_id TEXT NOT NULL REFERENCES monitors(id) ON DELETE CASCADE,
   status_code INTEGER NOT NULL DEFAULT 0,
   ok INTEGER NOT NULL,
+  degraded INTEGER NOT NULL DEFAULT 0,
   latency_ms INTEGER,
   error TEXT,
+  json_value TEXT,
   checked_at INTEGER NOT NULL DEFAULT (unixepoch())
 );
 

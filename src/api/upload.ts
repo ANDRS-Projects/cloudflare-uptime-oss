@@ -5,6 +5,7 @@ import * as db from '../db';
 const ALLOWED_TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/svg+xml'];
 
 export async function uploadLogo(c: Context<{ Bindings: Env }>) {
+  if (!c.env.ASSETS) return c.json({ error: 'R2 storage is not configured' }, 400);
   const pageId = c.req.param('id')!;
 
   const formData = await c.req.formData();
@@ -27,6 +28,7 @@ export async function uploadLogo(c: Context<{ Bindings: Env }>) {
 }
 
 export async function deleteLogo(c: Context<{ Bindings: Env }>) {
+  if (!c.env.ASSETS) return c.json({ error: 'R2 storage is not configured' }, 400);
   const pageId = c.req.param('id')!;
   const page = await db.getStatusPage(c.env.DB, pageId);
   if (!page) return c.notFound();
