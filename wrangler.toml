@@ -18,7 +18,7 @@ workers_dev = true
 [[d1_databases]]
 binding = "DB"
 database_name = "uptime-monitor"
-database_id = "9b0203d7-a836-49e1-ba68-b84e44d2146f"
+database_id = "YOUR_D1_DATABASE_ID"
 
 # Runs the check loop every minute
 [triggers]

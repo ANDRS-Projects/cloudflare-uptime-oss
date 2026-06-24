@@ -36,7 +36,6 @@ app.use('/api/*', cors());
 app.use('/api/*', async (c, next) => {
   const key = c.req.header('X-API-Key');
   if (!key || key !== c.env.API_KEY) {
-    console.log('API_KEY', c.env)
     return c.json({ error: 'Unauthorized' }, 401);
   }
   await next();
