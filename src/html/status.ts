@@ -133,12 +133,21 @@ export function renderStatusPage(slug: string, isCustomDomain = false): string {
   }
 
   async function load() {
+    let data;
     try {
       const res = await fetch('/status/' + SLUG + '/data');
-      if (!res.ok) throw new Error();
-      render(await res.json());
+      if (!res.ok) throw new Error('not found');
+      data = await res.json();
     } catch {
       document.getElementById('root').innerHTML = '<div class="err">Status page not found.</div>';
+      return;
+    }
+
+    try {
+      render(data);
+    } catch (err) {
+      console.error('Failed to render status page:', err);
+      document.getElementById('root').innerHTML = '<div class="err">Something went wrong loading this page. Please refresh.</div>';
     }
   }
 
