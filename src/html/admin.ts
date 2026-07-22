@@ -512,6 +512,12 @@ export function renderAdmin(hasAssets: boolean): string {
     await loadPages();
   }
 
+  async function setMinIncidentDuration(pageId, minutes) {
+    await api('/api/pages/' + pageId, { method: 'PUT', body: JSON.stringify({ min_incident_duration_minutes: parseInt(minutes) }) });
+    toast('Incident visibility threshold updated');
+    await loadPages();
+  }
+
   async function resolveNotice(noticeId, pageId) {
     await api('/api/pages/' + pageId + '/notices/' + noticeId + '/resolve', { method: 'PUT' });
     toast('Notice resolved');
@@ -587,6 +593,16 @@ export function renderAdmin(hasAssets: boolean): string {
         '<select onchange="setHistoryDays(pages[' + pi + '].id,this.value)" style="padding:.3rem .5rem;border:1px solid var(--border);border-radius:6px;font-size:.8rem;background:var(--surface);color:var(--text);cursor:pointer">' +
         '<option value="30"' + (p.incident_history_days === 30 ? ' selected' : '') + '>30 days</option>' +
         '<option value="90"' + (p.incident_history_days === 90 ? ' selected' : '') + '>90 days</option>' +
+        '</select>' +
+        '</div>' +
+        '<div class="domain-row">' +
+        '<span style="font-size:.8rem;color:var(--text-muted);flex:1">Hide incidents shorter than</span>' +
+        '<select onchange="setMinIncidentDuration(pages[' + pi + '].id,this.value)" style="padding:.3rem .5rem;border:1px solid var(--border);border-radius:6px;font-size:.8rem;background:var(--surface);color:var(--text);cursor:pointer">' +
+        '<option value="0"' + (!p.min_incident_duration_minutes ? ' selected' : '') + '>Show all</option>' +
+        '<option value="5"' + (p.min_incident_duration_minutes === 5 ? ' selected' : '') + '>5 minutes</option>' +
+        '<option value="15"' + (p.min_incident_duration_minutes === 15 ? ' selected' : '') + '>15 minutes</option>' +
+        '<option value="30"' + (p.min_incident_duration_minutes === 30 ? ' selected' : '') + '>30 minutes</option>' +
+        '<option value="60"' + (p.min_incident_duration_minutes === 60 ? ' selected' : '') + '>60 minutes</option>' +
         '</select>' +
         '</div>' +
         '</div>';
