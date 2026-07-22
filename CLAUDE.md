@@ -1,6 +1,6 @@
 # cloudflare-uptime
 
-**Version:** 1.0.0 | **Runtime:** Cloudflare Workers | **Stack:** TypeScript + Hono + D1 + R2
+**Version:** 1.5.3 | **Runtime:** Cloudflare Workers | **Stack:** TypeScript + Hono + D1 + R2
 
 ## What
 
