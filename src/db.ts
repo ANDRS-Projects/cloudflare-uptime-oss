@@ -84,7 +84,8 @@ export async function getOpenIncident(
 export async function getIncidents(
   db: D1Database,
   monitorId: string,
-  limit = 10
+  limit = 10,
+  minDurationMinutes = 0
 ): Promise<Incident[]> {
   const r = await db
     .prepare(`
@@ -99,10 +100,34 @@ export async function getIncidents(
            WHERE c.monitor_id = i.monitor_id AND c.ok = 0
            AND c.checked_at >= i.started_at - 120 AND c.checked_at <= i.started_at + 120
            ORDER BY c.checked_at ASC LIMIT 1)) AS trigger_error
-      FROM incidents i WHERE i.monitor_id = ? ORDER BY i.started_at DESC LIMIT ?
+      FROM incidents i
+      WHERE i.monitor_id = ?
+        AND (i.resolved_at IS NULL OR (i.resolved_at - i.started_at) >= ?)
+      ORDER BY i.started_at DESC LIMIT ?
     `)
-    .bind(monitorId, limit)
+    .bind(monitorId, minDurationMinutes * 60, limit)
     .all<Incident>();
+  return r.results;
+}
+
+// Minimal incident spans (no display fields) for coloring the public uptime bar.
+// Open incidents always qualify since their eventual duration isn't known yet.
+export async function getIncidentSpans(
+  db: D1Database,
+  monitorId: string,
+  since: number,
+  minDurationMinutes = 0
+): Promise<Array<{ started_at: number; resolved_at: number | null }>> {
+  const r = await db
+    .prepare(`
+      SELECT started_at, resolved_at FROM incidents
+      WHERE monitor_id = ?
+        AND (resolved_at IS NULL OR resolved_at >= ?)
+        AND (resolved_at IS NULL OR (resolved_at - started_at) >= ?)
+      ORDER BY started_at ASC
+    `)
+    .bind(monitorId, since, minDurationMinutes * 60)
+    .all<{ started_at: number; resolved_at: number | null }>();
   return r.results;
 }
 
@@ -130,7 +155,8 @@ export async function resolveIncident(db: D1Database, incidentId: number): Promi
 export async function getIncidentHistory(
   db: D1Database,
   pageId: string,
-  days: number
+  days: number,
+  minDurationMinutes = 0
 ): Promise<IncidentHistoryItem[]> {
   const since = Math.floor(Date.now() / 1000) - days * 86400;
   const r = await db
@@ -151,9 +177,10 @@ export async function getIncidentHistory(
       JOIN status_page_monitors spm ON spm.monitor_id = i.monitor_id
       JOIN monitors m ON m.id = i.monitor_id
       WHERE spm.status_page_id = ? AND i.started_at >= ?
+        AND (i.resolved_at IS NULL OR (i.resolved_at - i.started_at) >= ?)
       ORDER BY i.started_at DESC
     `)
-    .bind(pageId, since)
+    .bind(pageId, since, minDurationMinutes * 60)
     .all<IncidentHistoryItem>();
   return r.results;
 }

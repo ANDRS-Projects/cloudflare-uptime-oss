@@ -32,7 +32,7 @@ export async function getStatusPageRSS(c: Context<{ Bindings: Env }>) {
 
   const incidentRows = await Promise.all(
     monitors.map(async (m) => {
-      const incidents = await db.getIncidents(c.env.DB, m.id, 20);
+      const incidents = await db.getIncidents(c.env.DB, m.id, 20, page.min_incident_duration_minutes ?? 0);
       return incidents.map((i) => ({
         ts: i.started_at,
         title: i.resolved_at

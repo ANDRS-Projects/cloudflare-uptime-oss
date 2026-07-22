@@ -10,7 +10,7 @@ export async function getPublicIncidentHistory(c: Context<{ Bindings: Env }>) {
 
   const days = page.incident_history_days ?? 30;
   const [incidents, notices] = await Promise.all([
-    db.getIncidentHistory(c.env.DB, page.id, days),
+    db.getIncidentHistory(c.env.DB, page.id, days, page.min_incident_duration_minutes ?? 0),
     db.getNoticeHistory(c.env.DB, page.id, days),
   ]);
 
@@ -25,16 +25,19 @@ export async function getPublicStatusPage(c: Context<{ Bindings: Env }>) {
   if (!page) return c.notFound();
 
   const monitors = await db.getStatusPageMonitors(c.env.DB, page.id);
+  const minDurationMinutes = page.min_incident_duration_minutes ?? 0;
+  const bucketWindowStart = Math.floor(Date.now() / 1000) - 30 * 86400;
 
   const monitorsWithData = await Promise.all(
     monitors.map(async (m) => {
-      const [latest, uptime30, uptime7, incidents, checks, latency_24h] = await Promise.all([
+      const [latest, uptime30, uptime7, incidents, checks, latency_24h, bucketSpans] = await Promise.all([
         db.getLatestCheck(c.env.DB, m.id),
         db.getUptimePercent(c.env.DB, m.id, 30),
         db.getUptimePercent(c.env.DB, m.id, 7),
-        db.getIncidents(c.env.DB, m.id, 5),
+        db.getIncidents(c.env.DB, m.id, 5, minDurationMinutes),
         db.getChecks(c.env.DB, m.id),
         db.getLatencyBuckets(c.env.DB, m.id),
+        db.getIncidentSpans(c.env.DB, m.id, bucketWindowStart, minDurationMinutes),
       ]);
 
       return {
@@ -46,7 +49,7 @@ export async function getPublicStatusPage(c: Context<{ Bindings: Env }>) {
         uptime_7d: uptime7,
         latency_ms: latest?.latency_ms ?? null,
         incidents,
-        buckets: buildUptimeBuckets(checks, 90),
+        buckets: buildUptimeBuckets(checks, bucketSpans, 90),
         latency_24h,
       };
     })
@@ -62,7 +65,11 @@ export async function getPublicStatusPage(c: Context<{ Bindings: Env }>) {
   });
 }
 
-function buildUptimeBuckets(checks: Check[], count: number): string[] {
+function buildUptimeBuckets(
+  checks: Check[],
+  incidentSpans: Array<{ started_at: number; resolved_at: number | null }>,
+  count: number
+): string[] {
   const now = Math.floor(Date.now() / 1000);
   const windowSeconds = 30 * 86400; // show 30 days
   const start = now - windowSeconds;
@@ -75,7 +82,10 @@ function buildUptimeBuckets(checks: Check[], count: number): string[] {
       (c) => c.checked_at >= bucketStart && c.checked_at < bucketEnd
     );
     if (inBucket.length === 0) return 'unknown';
-    if (inBucket.some((c) => c.ok === 0)) return 'down';
+    const hasDownIncident = incidentSpans.some(
+      (s) => s.started_at < bucketEnd && (s.resolved_at === null || s.resolved_at > bucketStart)
+    );
+    if (hasDownIncident) return 'down';
     if (inBucket.some((c) => c.degraded === 1)) return 'degraded';
     return 'up';
   });

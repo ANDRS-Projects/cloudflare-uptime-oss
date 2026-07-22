@@ -46,6 +46,7 @@ CREATE TABLE IF NOT EXISTS status_pages (
   custom_domain TEXT UNIQUE,
   logo_url TEXT,
   incident_history_days INTEGER NOT NULL DEFAULT 30,
+  min_incident_duration_minutes INTEGER NOT NULL DEFAULT 0,
   created_at INTEGER NOT NULL DEFAULT (unixepoch())
 );
 

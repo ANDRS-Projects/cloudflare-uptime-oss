@@ -48,6 +48,7 @@ export interface StatusPage {
   custom_domain: string | null;
   logo_url: string | null;
   incident_history_days: number;
+  min_incident_duration_minutes: number;
   created_at: number;
 }
 
