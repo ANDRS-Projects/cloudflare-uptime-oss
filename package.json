@@ -1,6 +1,6 @@
 {
   "name": "cloudflare-uptime",
-  "version": "1.0.1",
+  "version": "1.5.3",
   "license": "MIT",
   "scripts": {
     "dev": "wrangler dev",
