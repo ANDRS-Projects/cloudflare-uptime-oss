@@ -31,6 +31,7 @@ Self-hosted uptime monitoring on Cloudflare Workers with public status pages —
 - **90-day latency history** — sparkline graph built from the rolling check history
 - **Incident timeline** — timestamped incidents with human-readable failure reasons (HTTP status badge + description, timeout label, or raw error)
 - **Incident history page** — `/status/:slug/history` lists all incidents grouped by month with collapsible sections; history window (30 or 90 days) is configurable per status page from the admin dashboard
+- **Minor incident filtering** — hide resolved incidents shorter than a configurable duration (5/15/30/60 min) from public status pages, the history page, and the RSS feed, so transient blips don't clutter real outages; ongoing incidents are always shown
 - **RSS feed** — `/status/:slug/rss` for incident subscribers
 - **Custom logo per page** — (Optional) upload a logo to R2; served through the Worker with immutable cache headers
 - **Custom domain routing** — each status page can be served on its own domain via `wrangler.toml` routes
@@ -246,6 +247,7 @@ There is no traditional `.env` file — see `.env.example` for a full annotated 
 | Field | Default | Description |
 |-------|---------|-------------|
 | `incident_history_days` | `30` | Number of days shown on the `/history` page — set to `30` or `90` |
+| `min_incident_duration_minutes` | `0` | Hide resolved incidents shorter than this from public views (`0` = show all); set to `5`, `15`, `30`, or `60` |
 
 ---
 
@@ -277,7 +279,7 @@ Code style:
 `npm run db:init:remote` on first deploy, and run `ALTER TABLE` statements
 via the Cloudflare D1 Console for any subsequent schema changes.
 
-**Upgrading from an earlier version** requires three manual `ALTER TABLE` statements in the D1 Console (safe to run on existing data — all columns have defaults):
+**Upgrading from an earlier version** requires the following manual `ALTER TABLE` statements in the D1 Console (safe to run on existing data — all columns have defaults):
 
 ```sql
 ALTER TABLE incidents ADD COLUMN trigger_status_code INTEGER;
@@ -289,6 +291,7 @@ ALTER TABLE monitors ADD COLUMN json_path TEXT;
 ALTER TABLE monitors ADD COLUMN json_status_map TEXT;
 ALTER TABLE checks ADD COLUMN degraded INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE checks ADD COLUMN json_value TEXT;
+ALTER TABLE status_pages ADD COLUMN min_incident_duration_minutes INTEGER NOT NULL DEFAULT 0;
 ```
 
 Migration files for each schema change are kept in `migrations/` and can be applied with:
