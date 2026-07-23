@@ -1,4 +1,4 @@
-name: Check wrangler esbuild version
+name: Check wrangler sharp/libvips version
 
 on:
   schedule:
@@ -12,27 +12,28 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - name: Check esbuild version bundled by latest wrangler
+      - name: Check sharp version bundled by latest wrangler's miniflare
         id: check
         run: |
           WRANGLER_VERSION=$(npm view wrangler version)
-          ESBUILD_VERSION=$(npm view "wrangler@${WRANGLER_VERSION}" dependencies.esbuild | tr -d '^~>=')
+          MINIFLARE_VERSION=$(npm view "wrangler@${WRANGLER_VERSION}" dependencies.miniflare | tr -d '^~>=')
+          SHARP_VERSION=$(npm view "miniflare@${MINIFLARE_VERSION}" dependencies.sharp | tr -d '^~>=')
           echo "wrangler=${WRANGLER_VERSION}" >> "$GITHUB_OUTPUT"
-          echo "esbuild=${ESBUILD_VERSION}" >> "$GITHUB_OUTPUT"
-          # Compare semver: is esbuild >= 0.28.1?
-          if printf '0.28.1\n%s\n' "$ESBUILD_VERSION" | sort -V -C; then
+          echo "sharp=${SHARP_VERSION}" >> "$GITHUB_OUTPUT"
+          # Compare semver: is sharp >= 0.35.0?
+          if printf '0.35.0\n%s\n' "$SHARP_VERSION" | sort -V -C; then
             echo "patched=true" >> "$GITHUB_OUTPUT"
           else
             echo "patched=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Open issue when esbuild is patched
+      - name: Open issue when sharp is patched
         if: steps.check.outputs.patched == 'true'
         uses: actions/github-script@v7
         with:
           script: |
             const wrangler = '${{ steps.check.outputs.wrangler }}';
-            const esbuild = '${{ steps.check.outputs.esbuild }}';
+            const sharp = '${{ steps.check.outputs.sharp }}';
 
             // Don't open a duplicate if one is already open
             const { data: issues } = await github.rest.issues.listForRepo({
@@ -41,7 +42,7 @@ jobs:
               state: 'open',
               labels: 'security',
             });
-            const already = issues.find(i => i.title.includes('esbuild CVE resolved'));
+            const already = issues.find(i => i.title.includes('sharp/libvips CVEs resolved'));
             if (already) {
               console.log('Issue already exists:', already.html_url);
               return;
@@ -50,12 +51,12 @@ jobs:
             await github.rest.issues.create({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              title: `chore: esbuild CVE resolved — upgrade wrangler to ${wrangler}`,
+              title: `chore: sharp/libvips CVEs resolved — upgrade wrangler to ${wrangler}`,
               labels: ['security'],
               body: [
-                `wrangler \`${wrangler}\` now bundles esbuild \`${esbuild}\` (>= 0.28.1).`,
+                `wrangler \`${wrangler}\` now bundles sharp \`${sharp}\` (>= 0.35.0).`,
                 '',
-                'The dismissed Dependabot alerts for GHSA-gv7w-rqvm-qjhr and GHSA-g7r4-m6w7-qqqr are now fixable.',
+                'This resolves GHSA-f88m-g3jw-g9cj (CVE-2026-33327, CVE-2026-33328, CVE-2026-35590, CVE-2026-35591) in the transitive wrangler → miniflare → sharp devDependency chain (local `wrangler dev` tooling only — sharp is never bundled into the deployed Worker).',
                 '',
                 '**Action:** bump `wrangler` in `package.json` to `^' + wrangler + '` and run `npm install`.',
               ].join('\n'),
