@@ -607,7 +607,7 @@ export function renderAdmin(hasAssets: boolean): string {
         '<div class="domain-row">' +
         '<span style="font-size:.8rem;color:var(--text-muted);flex:1">Header template</span>' +
         '<select onchange="setHeaderTemplate(pages[' + pi + '].id,this.value)" style="padding:.3rem .5rem;border:1px solid var(--border);border-radius:6px;font-size:.8rem;background:var(--surface);color:var(--text);cursor:pointer">' +
-        '<option value="centered"' + (p.header_template === 'centered' ? ' selected' : '') + '>Centered</option>' +
+        '<option value="centered"' + (p.header_template === 'centered' ? ' selected' : '') + '>Default</option>' +
         '<option value="banner"' + (p.header_template === 'banner' ? ' selected' : '') + '>Banner</option>' +
         '<option value="compact"' + (p.header_template === 'compact' ? ' selected' : '') + '>Compact</option>' +
         '</select>' +
