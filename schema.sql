@@ -47,6 +47,8 @@ CREATE TABLE IF NOT EXISTS status_pages (
   logo_url TEXT,
   incident_history_days INTEGER NOT NULL DEFAULT 30,
   min_incident_duration_minutes INTEGER NOT NULL DEFAULT 0,
+  header_template TEXT NOT NULL DEFAULT 'centered',
+  brand_color TEXT,
   created_at INTEGER NOT NULL DEFAULT (unixepoch())
 );
 

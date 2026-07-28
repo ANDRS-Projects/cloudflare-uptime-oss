@@ -518,6 +518,18 @@ export function renderAdmin(hasAssets: boolean): string {
     await loadPages();
   }
 
+  async function setHeaderTemplate(pageId, template) {
+    await api('/api/pages/' + pageId, { method: 'PUT', body: JSON.stringify({ header_template: template }) });
+    toast('Header template updated');
+    await loadPages();
+  }
+
+  async function setBrandColor(pageId, color) {
+    await api('/api/pages/' + pageId, { method: 'PUT', body: JSON.stringify({ brand_color: color || null }) });
+    toast(color ? 'Brand color saved' : 'Brand color reset');
+    await loadPages();
+  }
+
   async function resolveNotice(noticeId, pageId) {
     await api('/api/pages/' + pageId + '/notices/' + noticeId + '/resolve', { method: 'PUT' });
     toast('Notice resolved');
@@ -577,6 +589,19 @@ export function renderAdmin(hasAssets: boolean): string {
         (p.custom_domain
           ? '<span class="domain-val">&#127760; ' + esc(p.custom_domain) + '</span><button class="btn btn-ghost btn-sm" onclick="removeCustomDomain(' + pi + ')">Remove</button>'
           : '<input id="cdomain-' + pi + '" class="domain-input" type="text" placeholder="status.example.com"><button class="btn btn-ghost btn-sm" onclick="saveCustomDomain(' + pi + ')">Set domain</button>') +
+        '</div>' +
+        '<div class="domain-row">' +
+        '<span style="font-size:.8rem;color:var(--text-muted);flex:1">Header template</span>' +
+        '<select onchange="setHeaderTemplate(pages[' + pi + '].id,this.value)" style="padding:.3rem .5rem;border:1px solid var(--border);border-radius:6px;font-size:.8rem;background:var(--surface);color:var(--text);cursor:pointer">' +
+        '<option value="centered"' + (p.header_template === 'centered' ? ' selected' : '') + '>Centered</option>' +
+        '<option value="banner"' + (p.header_template === 'banner' ? ' selected' : '') + '>Banner</option>' +
+        '<option value="compact"' + (p.header_template === 'compact' ? ' selected' : '') + '>Compact</option>' +
+        '</select>' +
+        '</div>' +
+        '<div class="domain-row">' +
+        '<span style="font-size:.8rem;color:var(--text-muted);flex:1">Brand color</span>' +
+        '<input id="brand-' + pi + '" type="color" value="' + esc(p.brand_color || '#3b82f6') + '" style="width:2rem;height:1.9rem;padding:1px;border:1px solid var(--border);border-radius:6px;background:var(--surface);cursor:pointer" onchange="setBrandColor(pages[' + pi + '].id,this.value)">' +
+        (p.brand_color ? '<button class="btn btn-ghost btn-sm" onclick="setBrandColor(pages[' + pi + '].id,null)">Reset</button>' : '') +
         '</div>' +
         '<div class="chips">' + chips + '</div>' +
         '<div class="padd">' +
