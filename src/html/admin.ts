@@ -491,6 +491,17 @@ export function renderAdmin(hasAssets: boolean): string {
     await loadPages();
   }
 
+  async function setDescription(pageId, description) {
+    await api('/api/pages/' + pageId, { method: 'PUT', body: JSON.stringify({ description: description || null }) });
+    toast('Description saved');
+    await loadPages();
+  }
+
+  function saveDescription(pi) {
+    const input = document.getElementById('desc-' + pi);
+    if (input) setDescription(pages[pi].id, input.value.trim());
+  }
+
   async function setCustomDomain(pageId, domain) {
     await api('/api/pages/' + pageId, { method: 'PUT', body: JSON.stringify({ custom_domain: domain || null }) });
     toast(domain ? 'Custom domain saved' : 'Custom domain removed');
@@ -579,6 +590,9 @@ export function renderAdmin(hasAssets: boolean): string {
         '<a href="' + origin + '/status/' + p.slug + '/rss" target="_blank" class="btn btn-ghost btn-sm">RSS</a>' +
         '<button class="btn btn-danger btn-sm" onclick="deletePage(pages[' + pi + '].id)">Delete</button>' +
         '</div></div>' +
+        '<div class="domain-row">' +
+        '<input id="desc-' + pi + '" class="domain-input" type="text" placeholder="Description (optional)" value="' + esc(p.description || '') + '"><button class="btn btn-ghost btn-sm" onclick="saveDescription(' + pi + ')">Save</button>' +
+        '</div>' +
         '<div class="domain-row">' +
         (HAS_ASSETS ? (p.logo_url
           ? '<img src="' + esc(p.logo_url) + '" alt="logo" style="height:22px;max-width:80px;object-fit:contain;border-radius:3px"><span class="domain-val" style="font-size:.78rem">Logo set</span><button class="btn btn-ghost btn-sm" onclick="removeLogo(' + pi + ')">Remove</button>'
