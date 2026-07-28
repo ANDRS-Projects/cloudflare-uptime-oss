@@ -19,6 +19,17 @@ export function renderStatusPage(slug: string, isCustomDomain = false): string {
     .hdr{margin-bottom:2.5rem}
     .hdr h1{font-size:1.75rem;font-weight:700;color:var(--heading)}
     .hdr p{color:var(--text-muted);margin-top:.4rem;font-size:.95rem}
+    .hdr-logo{width:38px;height:38px;border-radius:9px;flex:none;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.95rem;letter-spacing:-.02em}
+    .hdr-banner{background:var(--brand,var(--accent));color:var(--brand-text,#fff);padding:1.75rem 1.5rem;border-radius:12px;margin-bottom:2.5rem}
+    .hdr-banner .row{display:flex;align-items:center;gap:.85rem}
+    .hdr-banner .hdr-logo{background:rgba(255,255,255,.22)}
+    .hdr-banner h1{font-size:1.5rem;font-weight:700;line-height:1.2;color:inherit}
+    .hdr-banner p{font-size:.85rem;margin-top:.15rem;opacity:.85;color:inherit}
+    .hdr-compact{display:flex;align-items:center;gap:.7rem;padding-bottom:.9rem;margin-bottom:2.5rem;border-bottom:2px solid var(--brand,var(--accent))}
+    .hdr-compact .hdr-logo{background:var(--brand,var(--accent));color:#fff}
+    .hdr-compact .meta{display:flex;align-items:baseline;gap:.6rem;flex-wrap:wrap}
+    .hdr-compact h1{font-size:1.15rem;color:var(--heading)}
+    .hdr-compact p{font-size:.8rem;color:var(--text-faint);margin-top:0}
     .overall{display:flex;align-items:center;gap:.75rem;padding:1rem 1.25rem;border-radius:10px;margin-bottom:2rem;font-weight:600;font-size:.95rem}
     .notice{padding:.875rem 1.25rem;border-radius:8px;margin-bottom:.625rem;border:1px solid}
     .notice-info{background:var(--blue-bg);color:var(--blue-text);border-color:var(--blue-border)}
@@ -94,6 +105,36 @@ export function renderStatusPage(slug: string, isCustomDomain = false): string {
 
   function esc(s) {
     return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function initials(name) {
+    return (name || '').trim().split(/\\s+/).slice(0, 2).map(w => w[0].toUpperCase()).join('') || '?';
+  }
+
+  function contrastText(hex) {
+    const r = parseInt(hex.slice(1, 3), 16) / 255, g = parseInt(hex.slice(3, 5), 16) / 255, b = parseInt(hex.slice(5, 7), 16) / 255;
+    const lin = [r, g, b].map(c => c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4));
+    const luminance = 0.2126 * lin[0] + 0.7152 * lin[1] + 0.0722 * lin[2];
+    return luminance > 0.42 ? '#1a1a1a' : '#fff';
+  }
+
+  function applyBrandColor(page) {
+    const root = document.documentElement;
+    const brand = page.brand_color && /^#[0-9a-fA-F]{6}$/.test(page.brand_color) ? page.brand_color : null;
+    if (brand) {
+      root.style.setProperty('--brand', brand);
+      root.style.setProperty('--brand-text', contrastText(brand));
+    } else {
+      root.style.removeProperty('--brand');
+      root.style.removeProperty('--brand-text');
+    }
+  }
+
+  function logoHtml(page, extraClass) {
+    if (page.logo_url) {
+      return '<img class="' + extraClass + '" src="' + esc(page.logo_url) + '" alt="' + esc(page.name) + '" style="height:38px;max-width:120px;object-fit:contain;border-radius:6px">';
+    }
+    return '<div class="hdr-logo ' + extraClass + '">' + esc(initials(page.name)) + '</div>';
   }
 
   function latencyGraph(buckets) {
@@ -232,17 +273,30 @@ export function renderStatusPage(slug: string, isCustomDomain = false): string {
         }).join('') + '</div>'
       : '';
 
+    applyBrandColor(page);
+
+    const desc = page.description ? '<p>' + esc(page.description) + '</p>' : '';
+    let hdrHtml;
+    if (page.header_template === 'banner') {
+      hdrHtml = '<div class="hdr hdr-banner"><div class="row">' + logoHtml(page, '') +
+        '<div><h1>' + esc(page.name) + '</h1>' + desc + '</div></div></div>';
+    } else if (page.header_template === 'compact') {
+      hdrHtml = '<div class="hdr hdr-compact">' + logoHtml(page, '') +
+        '<div class="meta"><h1>' + esc(page.name) + '</h1>' + desc + '</div></div>';
+    } else {
+      hdrHtml = '<div class="hdr">' +
+        (page.logo_url ? '<img src="' + esc(page.logo_url) + '" alt="' + esc(page.name) + '" style="height:48px;max-width:200px;object-fit:contain;display:block;margin-bottom:.75rem">' : '') +
+        '<h1>' + esc(page.name) + '</h1>' + desc + '</div>';
+    }
+
     document.title = esc(page.name) + ' — Status';
     document.getElementById('root').innerHTML =
-      '<div class="hdr">' +
-      (page.logo_url ? '<img src="' + esc(page.logo_url) + '" alt="' + esc(page.name) + '" style="height:48px;max-width:200px;object-fit:contain;display:block;margin-bottom:.75rem">' : '') +
-      '<h1>' + esc(page.name) + '</h1>' +
-      (page.description ? '<p>' + esc(page.description) + '</p>' : '') + '</div>' +
+      hdrHtml +
       noticeHtml +
       '<div class="overall ' + ovClass + '">' + ovIcon + '&nbsp;' + ovText + '</div>' +
       '<div style="margin-bottom:2rem"><div class="sec-label">Services</div>' + items + '</div>' +
-      '<div class="incidents-sec"><div class="sec-label" style="display:flex;justify-content:space-between;align-items:center">Past Incidents<a href="${historyHref}" style="font-size:.75rem;color:var(--text-faint);text-decoration:none;font-weight:400;text-transform:none;letter-spacing:0">View full history &rarr;</a></div>' + incidents + '</div>' +
-      '<div class="footer">Last updated ' + new Date(data.generated_at).toUTCString() + ' &nbsp;&middot;&nbsp; <a href="${rssHref}" style="color:var(--text-faint);text-decoration:none" title="Subscribe via RSS">RSS feed</a></div>' +
+      '<div class="incidents-sec"><div class="sec-label" style="display:flex;justify-content:space-between;align-items:center">Past Incidents<a href="${historyHref}" style="font-size:.75rem;color:var(--brand,var(--text-faint));text-decoration:none;font-weight:400;text-transform:none;letter-spacing:0">View full history &rarr;</a></div>' + incidents + '</div>' +
+      '<div class="footer">Last updated ' + new Date(data.generated_at).toUTCString() + ' &nbsp;&middot;&nbsp; <a href="${rssHref}" style="color:var(--brand,var(--text-faint));text-decoration:none" title="Subscribe via RSS">RSS feed</a></div>' +
       '<div class="footer" style="margin-top:.75rem;display:flex;align-items:center;justify-content:center;gap:.4rem">' +
         'Hosted for free using' +
         '&nbsp;<a href="https://cloudflare-uptime.andrs.nu" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:.35rem;color:var(--text-faint);text-decoration:none;font-weight:500">' +

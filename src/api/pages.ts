@@ -27,18 +27,31 @@ export async function createPage(c: Context<{ Bindings: Env }>) {
     logo_url: null,
     incident_history_days: 30,
     min_incident_duration_minutes: 0,
+    header_template: 'centered',
+    brand_color: null,
   });
   return c.json({ id }, 201);
 }
+
+const HEADER_TEMPLATES = ['centered', 'banner', 'compact'];
+const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
 
 export async function updatePage(c: Context<{ Bindings: Env }>) {
   const id = c.req.param('id');
   if (!id) return c.json({ error: 'missing id' }, 400);
   const body = await c.req.json<Record<string, unknown>>();
-  const allowed = ['name', 'slug', 'description', 'custom_domain', 'logo_url', 'incident_history_days', 'min_incident_duration_minutes'];
+  const allowed = ['name', 'slug', 'description', 'custom_domain', 'logo_url', 'incident_history_days', 'min_incident_duration_minutes', 'header_template', 'brand_color'];
   const updates = Object.fromEntries(
     Object.entries(body).filter(([k]) => allowed.includes(k))
   );
+
+  if ('header_template' in updates && !HEADER_TEMPLATES.includes(updates.header_template as string)) {
+    return c.json({ error: 'header_template must be one of ' + HEADER_TEMPLATES.join(', ') }, 400);
+  }
+  if ('brand_color' in updates && updates.brand_color !== null && !HEX_COLOR.test(updates.brand_color as string)) {
+    return c.json({ error: 'brand_color must be a hex color like #7c3aed, or null to clear it' }, 400);
+  }
+
   await db.updateStatusPage(c.env.DB, id, updates);
   return c.json({ ok: true });
 }

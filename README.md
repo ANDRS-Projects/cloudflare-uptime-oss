@@ -34,6 +34,8 @@ Self-hosted uptime monitoring on Cloudflare Workers with public status pages —
 - **Minor incident filtering** — hide resolved incidents shorter than a configurable duration (5/15/30/60 min) from public status pages, the history page, and the RSS feed, so transient blips don't clutter real outages; ongoing incidents are always shown
 - **RSS feed** — `/status/:slug/rss` for incident subscribers
 - **Custom logo per page** — (Optional) upload a logo to R2; served through the Worker with immutable cache headers
+- **Branded header templates** — choose a Centered, Banner, or Compact header layout per status page, and set a `brand_color` (validated hex) that flows through the header background/underline and site-wide accent links; unbranded pages render exactly as before
+- **Editable status page description** — set or update the description shown under the page title at any time from the admin dashboard, not just at creation
 - **Custom domain routing** — each status page can be served on its own domain via `wrangler.toml` routes
 - **Expected status code** — configure the expected HTTP response code per monitor (useful for endpoints that intentionally return 201, 204, 301, or any non-200 status)
 - **JSON payload monitoring** — extract a field from the JSON response body and map its value to `up`, `degraded`, or `down`; built-in Statuspage.io preset covers Anthropic, GitHub, and any other Statuspage.io-powered status page out of the box
@@ -248,6 +250,8 @@ There is no traditional `.env` file — see `.env.example` for a full annotated 
 |-------|---------|-------------|
 | `incident_history_days` | `30` | Number of days shown on the `/history` page — set to `30` or `90` |
 | `min_incident_duration_minutes` | `0` | Hide resolved incidents shorter than this from public views (`0` = show all); set to `5`, `15`, `30`, or `60` |
+| `header_template` | `centered` | Status page header layout — `centered` (default), `banner` (full-width brand-colored block), or `compact` (inline header with a brand-colored underline) |
+| `brand_color` | _(none)_ | Hex color (e.g. `#7c3aed`) applied to the header background/underline and site-wide accent links (RSS/history links); leave unset to use the default theme accent. Does not affect up/down/degraded status colors. |
 
 ---
 
@@ -292,6 +296,8 @@ ALTER TABLE monitors ADD COLUMN json_status_map TEXT;
 ALTER TABLE checks ADD COLUMN degraded INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE checks ADD COLUMN json_value TEXT;
 ALTER TABLE status_pages ADD COLUMN min_incident_duration_minutes INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE status_pages ADD COLUMN header_template TEXT NOT NULL DEFAULT 'centered';
+ALTER TABLE status_pages ADD COLUMN brand_color TEXT;
 ```
 
 Migration files for each schema change are kept in `migrations/` and can be applied with:

@@ -491,6 +491,17 @@ export function renderAdmin(hasAssets: boolean): string {
     await loadPages();
   }
 
+  async function setDescription(pageId, description) {
+    await api('/api/pages/' + pageId, { method: 'PUT', body: JSON.stringify({ description: description || null }) });
+    toast('Description saved');
+    await loadPages();
+  }
+
+  function saveDescription(pi) {
+    const input = document.getElementById('desc-' + pi);
+    if (input) setDescription(pages[pi].id, input.value.trim());
+  }
+
   async function setCustomDomain(pageId, domain) {
     await api('/api/pages/' + pageId, { method: 'PUT', body: JSON.stringify({ custom_domain: domain || null }) });
     toast(domain ? 'Custom domain saved' : 'Custom domain removed');
@@ -515,6 +526,18 @@ export function renderAdmin(hasAssets: boolean): string {
   async function setMinIncidentDuration(pageId, minutes) {
     await api('/api/pages/' + pageId, { method: 'PUT', body: JSON.stringify({ min_incident_duration_minutes: parseInt(minutes) }) });
     toast('Incident visibility threshold updated');
+    await loadPages();
+  }
+
+  async function setHeaderTemplate(pageId, template) {
+    await api('/api/pages/' + pageId, { method: 'PUT', body: JSON.stringify({ header_template: template }) });
+    toast('Header template updated');
+    await loadPages();
+  }
+
+  async function setBrandColor(pageId, color) {
+    await api('/api/pages/' + pageId, { method: 'PUT', body: JSON.stringify({ brand_color: color || null }) });
+    toast(color ? 'Brand color saved' : 'Brand color reset');
     await loadPages();
   }
 
@@ -568,6 +591,9 @@ export function renderAdmin(hasAssets: boolean): string {
         '<button class="btn btn-danger btn-sm" onclick="deletePage(pages[' + pi + '].id)">Delete</button>' +
         '</div></div>' +
         '<div class="domain-row">' +
+        '<input id="desc-' + pi + '" class="domain-input" type="text" placeholder="Description (optional)" value="' + esc(p.description || '') + '"><button class="btn btn-ghost btn-sm" onclick="saveDescription(' + pi + ')">Save</button>' +
+        '</div>' +
+        '<div class="domain-row">' +
         (HAS_ASSETS ? (p.logo_url
           ? '<img src="' + esc(p.logo_url) + '" alt="logo" style="height:22px;max-width:80px;object-fit:contain;border-radius:3px"><span class="domain-val" style="font-size:.78rem">Logo set</span><button class="btn btn-ghost btn-sm" onclick="removeLogo(' + pi + ')">Remove</button>'
           : '<input id="logo-' + pi + '" type="file" accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml" style="font-size:.8rem;flex:1;color:var(--text)"><button class="btn btn-ghost btn-sm" onclick="uploadLogo(' + pi + ')">Upload</button>')
@@ -577,6 +603,19 @@ export function renderAdmin(hasAssets: boolean): string {
         (p.custom_domain
           ? '<span class="domain-val">&#127760; ' + esc(p.custom_domain) + '</span><button class="btn btn-ghost btn-sm" onclick="removeCustomDomain(' + pi + ')">Remove</button>'
           : '<input id="cdomain-' + pi + '" class="domain-input" type="text" placeholder="status.example.com"><button class="btn btn-ghost btn-sm" onclick="saveCustomDomain(' + pi + ')">Set domain</button>') +
+        '</div>' +
+        '<div class="domain-row">' +
+        '<span style="font-size:.8rem;color:var(--text-muted);flex:1">Header template</span>' +
+        '<select onchange="setHeaderTemplate(pages[' + pi + '].id,this.value)" style="padding:.3rem .5rem;border:1px solid var(--border);border-radius:6px;font-size:.8rem;background:var(--surface);color:var(--text);cursor:pointer">' +
+        '<option value="centered"' + (p.header_template === 'centered' ? ' selected' : '') + '>Centered</option>' +
+        '<option value="banner"' + (p.header_template === 'banner' ? ' selected' : '') + '>Banner</option>' +
+        '<option value="compact"' + (p.header_template === 'compact' ? ' selected' : '') + '>Compact</option>' +
+        '</select>' +
+        '</div>' +
+        '<div class="domain-row">' +
+        '<span style="font-size:.8rem;color:var(--text-muted);flex:1">Brand color</span>' +
+        '<input id="brand-' + pi + '" type="color" value="' + esc(p.brand_color || '#3b82f6') + '" style="width:2rem;height:1.9rem;padding:1px;border:1px solid var(--border);border-radius:6px;background:var(--surface);cursor:pointer" onchange="setBrandColor(pages[' + pi + '].id,this.value)">' +
+        (p.brand_color ? '<button class="btn btn-ghost btn-sm" onclick="setBrandColor(pages[' + pi + '].id,null)">Reset</button>' : '') +
         '</div>' +
         '<div class="chips">' + chips + '</div>' +
         '<div class="padd">' +
