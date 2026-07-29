@@ -40,7 +40,7 @@ Self-hosted uptime monitoring on Cloudflare Workers with public status pages —
 - **Expected status code** — configure the expected HTTP response code per monitor (useful for endpoints that intentionally return 201, 204, 301, or any non-200 status)
 - **JSON payload monitoring** — extract a field from the JSON response body and map its value to `up`, `degraded`, or `down`; built-in Statuspage.io preset covers Anthropic, GitHub, and any other Statuspage.io-powered status page out of the box
 - **Degraded state** — yellow third state between green and red; degraded monitors appear on the status page without opening incidents or firing alerts
-- **Admin dashboard** — add/edit/delete monitors and status pages, view check history with extracted JSON values per check
+- **Admin dashboard** — add/edit/delete monitors and status pages, view check history with extracted JSON values per check; "Load more" pages back through a monitor's full 90-day retention window
 - **Dark mode** — full light / dark / system theme support across the admin dashboard, status pages, and history pages; toggle persists via `localStorage`
 - **Slack and Discord webhook alerts** — per-monitor webhooks fire on incident open and close
 - **Maintenance notices** — create notices that appear on status pages; resolved notices stay visible for 24 hours with a "Resolved" badge
@@ -315,6 +315,13 @@ to your `.workers.dev` URL and omit `custom_domain`.
 **Cron triggers run from a single datacenter.**
 Cloudflare cron triggers fire from the datacenter nearest to your D1 region — not
 from multiple global locations. Check latency results reflect that single origin's network path.
+
+**Public status pages can lag up to 30 seconds behind the latest check or incident update.**
+Both public data endpoints (`/status/:slug/data`, `/status/:slug/history/data`) sit behind a
+30-second Workers Cache API layer, since the underlying data can't change faster than the cron
+interval (1 minute minimum) and status pages can have many concurrent viewers. A new check
+result, resolved incident, or notice may take up to 30s to appear on the public page — the
+admin dashboard is not cached and always reflects live data.
 
 **The admin dashboard has no authentication UI.**
 All admin API routes require an `X-API-Key` header matching the `API_KEY` secret. The
