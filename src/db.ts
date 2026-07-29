@@ -108,6 +108,69 @@ export async function getUptimeBucketBins(
   });
 }
 
+export async function getUptimeSummary(
+  db: D1Database,
+  monitorId: string,
+  since30d: number,
+  since7d: number
+): Promise<{ uptime30: number; uptime7: number }> {
+  const row = await db
+    .prepare(
+      `SELECT
+        SUM(CASE WHEN checked_at >= ? THEN 1 ELSE 0 END) AS total30,
+        SUM(CASE WHEN checked_at >= ? AND ok = 1 THEN 1 ELSE 0 END) AS up30,
+        SUM(CASE WHEN checked_at >= ? THEN 1 ELSE 0 END) AS total7,
+        SUM(CASE WHEN checked_at >= ? AND ok = 1 THEN 1 ELSE 0 END) AS up7
+      FROM checks WHERE monitor_id = ? AND checked_at >= ?`
+    )
+    .bind(since30d, since30d, since7d, since7d, monitorId, since30d)
+    .first<{ total30: number; up30: number; total7: number; up7: number }>();
+
+  const uptime30 = !row || !row.total30 ? 100 : Math.round((row.up30 / row.total30) * 1000) / 10;
+  const uptime7 = !row || !row.total7 ? 100 : Math.round((row.up7 / row.total7) * 1000) / 10;
+  return { uptime30, uptime7 };
+}
+
+// Aggregates in SQL instead of fetching raw rows: D1 still scans the same
+// checked_at >= since range (rows_read cost is unchanged), but returns at
+// most 24 grouped rows instead of up to ~43k raw ones for a 1-minute-interval
+// monitor — and D1 query execution isn't counted against the Worker's CPU
+// time limit, only what the Worker does with the rows it gets back is. That
+// full raw fetch (plus the JS-side bucketing loop over it) was blowing the
+// Workers Free plan's 10ms CPU-time-per-request budget on status pages with
+// several high-frequency monitors.
+export async function getLatencyBucketsAgg(
+  db: D1Database,
+  monitorId: string,
+  sinceEpoch: number
+): Promise<Array<{ avg_ms: number | null; ok: boolean }>> {
+  const BUCKET_COUNT = 24;
+  const BUCKET_SECONDS = 3600;
+  const untilEpoch = sinceEpoch + BUCKET_COUNT * BUCKET_SECONDS;
+
+  const r = await db
+    .prepare(
+      `SELECT
+        CAST((checked_at - ?) / ? AS INTEGER) AS bucket_idx,
+        SUM(CASE WHEN ok = 0 THEN 1 ELSE 0 END) AS down_cnt,
+        SUM(CASE WHEN ok = 1 AND latency_ms IS NOT NULL THEN latency_ms ELSE 0 END) AS latency_sum,
+        SUM(CASE WHEN ok = 1 AND latency_ms IS NOT NULL THEN 1 ELSE 0 END) AS latency_cnt
+      FROM checks
+      WHERE monitor_id = ? AND checked_at >= ? AND checked_at < ?
+      GROUP BY bucket_idx`
+    )
+    .bind(sinceEpoch, BUCKET_SECONDS, monitorId, sinceEpoch, untilEpoch)
+    .all<{ bucket_idx: number; down_cnt: number; latency_sum: number; latency_cnt: number }>();
+
+  const byIdx = new Map(r.results.map((row) => [row.bucket_idx, row]));
+  return Array.from({ length: BUCKET_COUNT }, (_, i) => {
+    const row = byIdx.get(i);
+    if (!row) return { avg_ms: null, ok: true };
+    const avg_ms = row.latency_cnt ? Math.round(row.latency_sum / row.latency_cnt) : null;
+    return { avg_ms, ok: row.down_cnt === 0 };
+  });
+}
+
 export async function createCheck(
   db: D1Database,
   monitorId: string,
@@ -321,32 +384,6 @@ export async function removeMonitorFromPage(
     )
     .bind(pageId, monitorId)
     .run();
-}
-
-export async function getLatencyBuckets(
-  db: D1Database,
-  monitorId: string
-): Promise<Array<{ avg_ms: number | null; ok: boolean }>> {
-  const now = Math.floor(Date.now() / 1000);
-  const since = now - 86400;
-  const r = await db
-    .prepare('SELECT * FROM checks WHERE monitor_id = ? AND checked_at >= ? ORDER BY checked_at ASC')
-    .bind(monitorId, since)
-    .all<Check>();
-  const checks = r.results;
-
-  return Array.from({ length: 24 }, (_, i) => {
-    const start = since + i * 3600;
-    const end = start + 3600;
-    const inBucket = checks.filter((c) => c.checked_at >= start && c.checked_at < end);
-    if (!inBucket.length) return { avg_ms: null, ok: true };
-    const hasDown = inBucket.some((c) => c.ok === 0);
-    const upChecks = inBucket.filter((c) => c.ok === 1 && c.latency_ms !== null);
-    const avg_ms = upChecks.length
-      ? Math.round(upChecks.reduce((s, c) => s + (c.latency_ms ?? 0), 0) / upChecks.length)
-      : null;
-    return { avg_ms, ok: !hasDown };
-  });
 }
 
 export async function getStatusPageByDomain(
