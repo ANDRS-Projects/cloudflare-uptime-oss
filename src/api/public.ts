@@ -1,5 +1,5 @@
 import type { Context } from 'hono';
-import type { Env, Check } from '../types';
+import type { Env } from '../types';
 import * as db from '../db';
 
 export async function getPublicIncidentHistory(c: Context<{ Bindings: Env }>) {
@@ -26,16 +26,20 @@ export async function getPublicStatusPage(c: Context<{ Bindings: Env }>) {
 
   const monitors = await db.getStatusPageMonitors(c.env.DB, page.id);
   const minDurationMinutes = page.min_incident_duration_minutes ?? 0;
-  const bucketWindowStart = Math.floor(Date.now() / 1000) - 30 * 86400;
+
+  const BUCKET_COUNT = 90;
+  const bucketWindowSeconds = 30 * 86400;
+  const bucketWindowStart = Math.floor(Date.now() / 1000) - bucketWindowSeconds;
+  const bucketSize = bucketWindowSeconds / BUCKET_COUNT;
 
   const monitorsWithData = await Promise.all(
     monitors.map(async (m) => {
-      const [latest, uptime30, uptime7, incidents, checks, latency_24h, bucketSpans] = await Promise.all([
+      const [latest, uptime30, uptime7, incidents, uptimeBins, latency_24h, bucketSpans] = await Promise.all([
         db.getLatestCheck(c.env.DB, m.id),
         db.getUptimePercent(c.env.DB, m.id, 30),
         db.getUptimePercent(c.env.DB, m.id, 7),
         db.getIncidents(c.env.DB, m.id, 5, minDurationMinutes),
-        db.getChecks(c.env.DB, m.id),
+        db.getUptimeBucketBins(c.env.DB, m.id, bucketWindowStart, bucketSize, BUCKET_COUNT),
         db.getLatencyBuckets(c.env.DB, m.id),
         db.getIncidentSpans(c.env.DB, m.id, bucketWindowStart, minDurationMinutes),
       ]);
@@ -49,7 +53,7 @@ export async function getPublicStatusPage(c: Context<{ Bindings: Env }>) {
         uptime_7d: uptime7,
         latency_ms: latest?.latency_ms ?? null,
         incidents,
-        buckets: buildUptimeBuckets(checks, bucketSpans, 90),
+        buckets: buildUptimeBuckets(uptimeBins, bucketSpans, bucketWindowStart, bucketSize),
         latency_24h,
       };
     })
@@ -65,28 +69,26 @@ export async function getPublicStatusPage(c: Context<{ Bindings: Env }>) {
   });
 }
 
+// Combines the SQL-aggregated per-bucket bins with incident spans (already a
+// small in-memory array) to produce the final up/down/degraded/unknown label
+// per bucket — this part stays in JS since it's only `count` (90) iterations
+// against a handful of incident spans, nowhere near the CPU cost of looping
+// over every raw check row.
 function buildUptimeBuckets(
-  checks: Check[],
+  bins: Array<{ hasAny: boolean; hasDegraded: boolean }>,
   incidentSpans: Array<{ started_at: number; resolved_at: number | null }>,
-  count: number
+  start: number,
+  bucketSize: number
 ): string[] {
-  const now = Math.floor(Date.now() / 1000);
-  const windowSeconds = 30 * 86400; // show 30 days
-  const start = now - windowSeconds;
-  const bucketSize = windowSeconds / count;
-
-  return Array.from({ length: count }, (_, i) => {
+  return bins.map((bin, i) => {
+    if (!bin.hasAny) return 'unknown';
     const bucketStart = start + i * bucketSize;
     const bucketEnd = bucketStart + bucketSize;
-    const inBucket = checks.filter(
-      (c) => c.checked_at >= bucketStart && c.checked_at < bucketEnd
-    );
-    if (inBucket.length === 0) return 'unknown';
     const hasDownIncident = incidentSpans.some(
       (s) => s.started_at < bucketEnd && (s.resolved_at === null || s.resolved_at > bucketStart)
     );
     if (hasDownIncident) return 'down';
-    if (inBucket.some((c) => c.degraded === 1)) return 'degraded';
+    if (bin.hasDegraded) return 'degraded';
     return 'up';
   });
 }

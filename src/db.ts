@@ -72,6 +72,42 @@ export async function getChecks(
   return r.results;
 }
 
+// Aggregates in SQL instead of fetching raw rows: D1 still scans the same
+// checked_at >= since range (rows_read cost is unchanged), but returns at
+// most `count` grouped rows instead of up to ~43k raw ones for a
+// 1-minute-interval monitor — and D1 query execution isn't counted against
+// the Worker's CPU time limit, only what the Worker does with the rows it
+// gets back is. Fetching+looping over the raw rows for this was eating into
+// the Workers Free plan's 10ms/request CPU budget on status pages with
+// several high-frequency monitors.
+export async function getUptimeBucketBins(
+  db: D1Database,
+  monitorId: string,
+  start: number,
+  bucketSize: number,
+  count: number
+): Promise<Array<{ hasAny: boolean; hasDegraded: boolean }>> {
+  const r = await db
+    .prepare(
+      `SELECT
+        CAST((checked_at - ?) / ? AS INTEGER) AS bucket_idx,
+        COUNT(*) AS cnt,
+        SUM(CASE WHEN degraded = 1 THEN 1 ELSE 0 END) AS degraded_cnt
+      FROM checks
+      WHERE monitor_id = ? AND checked_at >= ?
+      GROUP BY bucket_idx`
+    )
+    .bind(start, bucketSize, monitorId, start)
+    .all<{ bucket_idx: number; cnt: number; degraded_cnt: number }>();
+
+  const byIdx = new Map(r.results.map((row) => [row.bucket_idx, row]));
+  return Array.from({ length: count }, (_, i) => {
+    const row = byIdx.get(i);
+    if (!row) return { hasAny: false, hasDegraded: false };
+    return { hasAny: row.cnt > 0, hasDegraded: row.degraded_cnt > 0 };
+  });
+}
+
 export async function createCheck(
   db: D1Database,
   monitorId: string,
