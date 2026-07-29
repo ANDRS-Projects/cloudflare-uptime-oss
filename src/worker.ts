@@ -7,7 +7,7 @@ import * as pagesApi from './api/pages';
 import * as noticesApi from './api/notices';
 import { uploadLogo, deleteLogo } from './api/upload';
 import { getPublicStatusPage, getPublicIncidentHistory } from './api/public';
-import { getStatusPageRSS } from './api/rss';
+import { getStatusPageRSS, buildStatusPageRSS } from './api/rss';
 import { runCronJob } from './cron';
 import { renderAdmin } from './html/admin';
 import { renderStatusPage } from './html/status';
@@ -26,6 +26,10 @@ app.use('*', async (c, next) => {
     if (url.pathname === '/history') {
       const page = await db.getStatusPageByDomain(c.env.DB, url.hostname);
       if (page) return c.html(renderHistoryPage(page.slug, true));
+    }
+    if (url.pathname === '/rss') {
+      const page = await db.getStatusPageByDomain(c.env.DB, url.hostname);
+      if (page) return buildStatusPageRSS(c, page.slug);
     }
   }
   return next();
