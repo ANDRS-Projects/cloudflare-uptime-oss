@@ -80,6 +80,8 @@ export async function deleteMonitor(c: Context<{ Bindings: Env }>) {
 export async function getMonitorChecks(c: Context<{ Bindings: Env }>) {
   const id = c.req.param('id');
   if (!id) return c.json({ error: 'missing id' }, 400);
-  const checks = await db.getChecks(c.env.DB, id);
+  const limitParam = c.req.query('limit');
+  const limit = limitParam ? Number(limitParam) : undefined;
+  const checks = await db.getChecks(c.env.DB, id, limit && limit > 0 ? limit : undefined);
   return c.json(checks);
 }

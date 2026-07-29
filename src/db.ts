@@ -46,13 +46,17 @@ export async function getLatestCheck(db: D1Database, monitorId: string): Promise
 
 export async function getChecks(
   db: D1Database,
-  monitorId: string
+  monitorId: string,
+  limit?: number
 ): Promise<Check[]> {
   const since = Math.floor(Date.now() / 1000) - 30 * 86400;
-  const r = await db
-    .prepare('SELECT * FROM checks WHERE monitor_id = ? AND checked_at >= ? ORDER BY checked_at DESC')
-    .bind(monitorId, since)
-    .all<Check>();
+  const query = limit
+    ? 'SELECT * FROM checks WHERE monitor_id = ? AND checked_at >= ? ORDER BY checked_at DESC LIMIT ?'
+    : 'SELECT * FROM checks WHERE monitor_id = ? AND checked_at >= ? ORDER BY checked_at DESC';
+  const stmt = limit
+    ? db.prepare(query).bind(monitorId, since, limit)
+    : db.prepare(query).bind(monitorId, since);
+  const r = await stmt.all<Check>();
   return r.results;
 }
 
