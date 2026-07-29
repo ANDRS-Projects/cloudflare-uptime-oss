@@ -47,16 +47,28 @@ export async function getLatestCheck(db: D1Database, monitorId: string): Promise
 export async function getChecks(
   db: D1Database,
   monitorId: string,
-  limit?: number
+  options?: { limit?: number; before?: number }
 ): Promise<Check[]> {
-  const since = Math.floor(Date.now() / 1000) - 30 * 86400;
-  const query = limit
-    ? 'SELECT * FROM checks WHERE monitor_id = ? AND checked_at >= ? ORDER BY checked_at DESC LIMIT ?'
-    : 'SELECT * FROM checks WHERE monitor_id = ? AND checked_at >= ? ORDER BY checked_at DESC';
-  const stmt = limit
-    ? db.prepare(query).bind(monitorId, since, limit)
-    : db.prepare(query).bind(monitorId, since);
-  const r = await stmt.all<Check>();
+  const limit = options?.limit;
+  const before = options?.before;
+  // Callers that page (limit set) can reach back to the full 90-day retention
+  // window (see cron.ts cleanup); the unpaginated call (public status page,
+  // no options) keeps the original 30-day floor it was built around.
+  const since = Math.floor(Date.now() / 1000) - (limit ? 90 : 30) * 86400;
+
+  const conditions = ['monitor_id = ?', 'checked_at >= ?'];
+  const params: (string | number)[] = [monitorId, since];
+  if (before) {
+    conditions.push('checked_at < ?');
+    params.push(before);
+  }
+  let query = `SELECT * FROM checks WHERE ${conditions.join(' AND ')} ORDER BY checked_at DESC`;
+  if (limit) {
+    query += ' LIMIT ?';
+    params.push(limit);
+  }
+
+  const r = await db.prepare(query).bind(...params).all<Check>();
   return r.results;
 }
 
