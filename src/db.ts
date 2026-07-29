@@ -271,32 +271,6 @@ export async function removeMonitorFromPage(
     .run();
 }
 
-export async function getLatencyBuckets(
-  db: D1Database,
-  monitorId: string
-): Promise<Array<{ avg_ms: number | null; ok: boolean }>> {
-  const now = Math.floor(Date.now() / 1000);
-  const since = now - 86400;
-  const r = await db
-    .prepare('SELECT * FROM checks WHERE monitor_id = ? AND checked_at >= ? ORDER BY checked_at ASC')
-    .bind(monitorId, since)
-    .all<Check>();
-  const checks = r.results;
-
-  return Array.from({ length: 24 }, (_, i) => {
-    const start = since + i * 3600;
-    const end = start + 3600;
-    const inBucket = checks.filter((c) => c.checked_at >= start && c.checked_at < end);
-    if (!inBucket.length) return { avg_ms: null, ok: true };
-    const hasDown = inBucket.some((c) => c.ok === 0);
-    const upChecks = inBucket.filter((c) => c.ok === 1 && c.latency_ms !== null);
-    const avg_ms = upChecks.length
-      ? Math.round(upChecks.reduce((s, c) => s + (c.latency_ms ?? 0), 0) / upChecks.length)
-      : null;
-    return { avg_ms, ok: !hasDown };
-  });
-}
-
 export async function getStatusPageByDomain(
   db: D1Database,
   hostname: string
