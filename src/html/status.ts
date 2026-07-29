@@ -347,13 +347,19 @@ export function renderStatusPage(slug: string, isCustomDomain = false): string {
     }
 
     document.getElementById('header-root').innerHTML = headerFullHtml;
-    document.getElementById('bodyContainer').classList.toggle('container-flush', isNavbar);
+    // The floating-card overlap only makes sense when the status banner sits
+    // directly against the navbar's bottom edge. If a notice is active it renders
+    // first (notices stay above the status summary on every template, navbar
+    // included), so the banner would overlap the notice instead of the navbar —
+    // fall back to a normal (non-floating) box in that case.
+    const showFloating = isNavbar && !(notices || []).length;
+    document.getElementById('bodyContainer').classList.toggle('container-flush', showFloating);
 
     document.title = esc(page.name) + ' — Status';
     document.getElementById('root').innerHTML =
       hdrHtml +
       noticeHtml +
-      '<div class="overall ' + ovClass + (isNavbar ? ' overall-floating' : '') + '">' + ovIcon + '&nbsp;' + ovText + '</div>' +
+      '<div class="overall ' + ovClass + (showFloating ? ' overall-floating' : '') + '">' + ovIcon + '&nbsp;' + ovText + '</div>' +
       '<div style="margin-bottom:2rem"><div class="sec-label">Services</div>' + items + '</div>' +
       '<div class="incidents-sec"><div class="sec-label" style="display:flex;justify-content:space-between;align-items:center">Past Incidents<a href="${historyHref}" style="font-size:.75rem;color:var(--brand,var(--text-faint));text-decoration:none;font-weight:400;text-transform:none;letter-spacing:0">View full history &rarr;</a></div>' + incidents + '</div>' +
       '<div class="footer">Last updated ' + new Date(data.generated_at).toUTCString() + ' &nbsp;&middot;&nbsp; <a href="${rssHref}" style="color:var(--brand,var(--text-faint));text-decoration:none" title="Subscribe via RSS">RSS feed</a></div>' +
