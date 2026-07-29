@@ -34,7 +34,7 @@ Self-hosted uptime monitoring on Cloudflare Workers with public status pages —
 - **Minor incident filtering** — hide resolved incidents shorter than a configurable duration (5/15/30/60 min) from public status pages, the history page, and the RSS feed, so transient blips don't clutter real outages; ongoing incidents are always shown
 - **RSS feed** — `/status/:slug/rss` for incident subscribers
 - **Custom logo per page** — (Optional) upload a logo to R2; served through the Worker with immutable cache headers
-- **Branded header templates** — choose a Centered, Banner, or Compact header layout per status page, and set a `brand_color` (validated hex) that flows through the header background/underline and site-wide accent links; unbranded pages render exactly as before
+- **Branded header templates** — choose a Default (centered), Banner, Compact, or Navbar header layout per status page, and set a `brand_color` (validated hex) that flows through the header background/underline and site-wide accent links; unbranded pages render exactly as before. Banner and Navbar backgrounds span the full page width; Navbar also shows a live "next check" countdown and an RSS bell icon, with the overall status summary floating over its bottom edge
 - **Editable status page description** — set or update the description shown under the page title at any time from the admin dashboard, not just at creation
 - **Custom domain routing** — each status page can be served on its own domain via `wrangler.toml` routes
 - **Expected status code** — configure the expected HTTP response code per monitor (useful for endpoints that intentionally return 201, 204, 301, or any non-200 status)
@@ -250,7 +250,7 @@ There is no traditional `.env` file — see `.env.example` for a full annotated 
 |-------|---------|-------------|
 | `incident_history_days` | `30` | Number of days shown on the `/history` page — set to `30` or `90` |
 | `min_incident_duration_minutes` | `0` | Hide resolved incidents shorter than this from public views (`0` = show all); set to `5`, `15`, `30`, or `60` |
-| `header_template` | `centered` | Status page header layout — `centered` (default), `banner` (full-width brand-colored block), or `compact` (inline header with a brand-colored underline) |
+| `header_template` | `centered` | Status page header layout — `centered` (default), `banner` (full-bleed brand-colored block), `compact` (inline header with a brand-colored underline), or `navbar` (full-bleed dark bar with live status countdown and RSS bell; the overall status summary floats over its bottom edge, above any notices) |
 | `brand_color` | _(none)_ | Hex color (e.g. `#7c3aed`) applied to the header background/underline and site-wide accent links (RSS/history links); leave unset to use the default theme accent. Does not affect up/down/degraded status colors. |
 
 ---
