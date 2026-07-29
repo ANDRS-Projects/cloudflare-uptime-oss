@@ -18,7 +18,10 @@ function durStr(s: number): string {
 }
 
 export async function getStatusPageRSS(c: Context<{ Bindings: Env }>) {
-  const slug = c.req.param('slug')!;
+  return buildStatusPageRSS(c, c.req.param('slug')!);
+}
+
+export async function buildStatusPageRSS(c: Context<{ Bindings: Env }>, slug: string) {
   const page = await db.getStatusPage(c.env.DB, slug);
   if (!page) return c.notFound();
 
@@ -39,8 +42,8 @@ export async function getStatusPageRSS(c: Context<{ Bindings: Env }>) {
           ? `Resolved: ${m.name} outage (lasted ${durStr(i.resolved_at - i.started_at)})`
           : `Ongoing outage: ${m.name}`,
         desc: i.resolved_at
-          ? `The outage for ${m.name} started ${rfc2822(i.started_at)} and lasted ${durStr(i.resolved_at - i.started_at)}.`
-          : `${m.name} has been down since ${rfc2822(i.started_at)}.`,
+          ? `The outage for ${xmlEsc(m.name)} started ${rfc2822(i.started_at)} and lasted ${durStr(i.resolved_at - i.started_at)}.`
+          : `${xmlEsc(m.name)} has been down since ${rfc2822(i.started_at)}.`,
         guid: `incident-${i.id}`,
       }));
     })
