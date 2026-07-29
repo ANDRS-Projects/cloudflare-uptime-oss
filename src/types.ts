@@ -49,7 +49,7 @@ export interface StatusPage {
   logo_url: string | null;
   incident_history_days: number;
   min_incident_duration_minutes: number;
-  header_template: 'centered' | 'banner' | 'compact';
+  header_template: 'centered' | 'banner' | 'compact' | 'navbar';
   brand_color: string | null;
   created_at: number;
 }

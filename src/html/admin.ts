@@ -610,6 +610,7 @@ export function renderAdmin(hasAssets: boolean): string {
         '<option value="centered"' + (p.header_template === 'centered' ? ' selected' : '') + '>Default</option>' +
         '<option value="banner"' + (p.header_template === 'banner' ? ' selected' : '') + '>Banner</option>' +
         '<option value="compact"' + (p.header_template === 'compact' ? ' selected' : '') + '>Compact</option>' +
+        '<option value="navbar"' + (p.header_template === 'navbar' ? ' selected' : '') + '>Navbar</option>' +
         '</select>' +
         '</div>' +
         '<div class="domain-row">' +

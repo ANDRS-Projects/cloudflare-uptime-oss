@@ -20,7 +20,11 @@ export function renderStatusPage(slug: string, isCustomDomain = false): string {
     .hdr h1{font-size:1.75rem;font-weight:700;color:var(--heading)}
     .hdr p{color:var(--text-muted);margin-top:.4rem;font-size:.95rem}
     .hdr-logo{width:38px;height:38px;border-radius:9px;flex:none;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.95rem;letter-spacing:-.02em}
-    .hdr-banner{background:var(--brand,var(--accent));color:var(--brand-text,#fff);padding:1.75rem 1.5rem;border-radius:12px;margin-bottom:2.5rem}
+    /* .hdr-inner re-applies .container's max-width+padding inside a full-bleed band
+       (.hdr-banner / .hdr-navbar), so the logo/title still lines up with the services
+       list below even though the background spans the whole page width. */
+    .hdr-inner{max-width:760px;margin:0 auto;padding:0 1.5rem}
+    .hdr-banner{background:linear-gradient(135deg,rgba(255,255,255,.18),rgba(0,0,0,.14)),var(--brand,var(--accent));color:var(--brand-text,#fff);padding:1.75rem 0;margin-bottom:2.5rem}
     .hdr-banner .row{display:flex;align-items:center;gap:.85rem}
     .hdr-banner .hdr-logo{background:rgba(255,255,255,.22)}
     .hdr-banner h1{font-size:1.5rem;font-weight:700;line-height:1.2;color:inherit}
@@ -30,7 +34,24 @@ export function renderStatusPage(slug: string, isCustomDomain = false): string {
     .hdr-compact .meta{display:flex;align-items:baseline;gap:.6rem;flex-wrap:wrap}
     .hdr-compact h1{font-size:1.15rem;color:var(--heading)}
     .hdr-compact p{font-size:.8rem;color:var(--text-faint);margin-top:0}
-    .overall{display:flex;align-items:center;gap:.75rem;padding:1rem 1.25rem;border-radius:10px;margin-bottom:2rem;font-weight:600;font-size:.95rem}
+    /* Fixed dark navy regardless of theme, with a hairline + shadow seam so it stays
+       visibly distinct from the page background in dark mode too. */
+    .hdr-navbar{background:#1b2140;padding:1.25rem 0 3.4rem;border-bottom:1px solid rgba(148,163,184,.22);box-shadow:0 8px 20px -8px rgba(0,0,0,.45)}
+    .navbar-top{display:flex;align-items:center;gap:1rem}
+    .navbar-brand{display:flex;align-items:center;gap:.65rem;color:#fff;flex:1;min-width:0}
+    .navbar-brand .hdr-logo{background:rgba(255,255,255,.16);color:#fff}
+    .navbar-title{font-weight:700;font-size:1.05rem;line-height:1.25}
+    .navbar-subtitle{font-size:.78rem;color:rgba(255,255,255,.6);margin-top:.1rem}
+    .navbar-right{text-align:right;margin-right:.9rem}
+    .navbar-status-label{font-size:.82rem;font-weight:700;color:#fff}
+    .navbar-meta{font-size:.72rem;color:rgba(255,255,255,.55);margin-top:.15rem;font-variant-numeric:tabular-nums}
+    .navbar-bell{width:2.15rem;height:2.15rem;border-radius:8px;flex:none;background:var(--brand,var(--accent));color:#fff;font-size:1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;text-decoration:none}
+    @media(max-width:520px){.navbar-right{display:none}}
+    .container-flush{padding-top:0}
+    .overall{display:flex;align-items:center;gap:.75rem;padding:1rem 1.25rem;border-radius:10px;margin-bottom:2rem;font-weight:600;font-size:.95rem;transition:margin .15s}
+    /* Navbar re-skins this same dynamic status banner into a floating card instead of
+       showing a second "all systems operational" line — one source, no duplication. */
+    .overall-floating{margin:-2.15rem 0 1.75rem;box-shadow:0 12px 28px rgba(15,23,42,.16);position:relative;z-index:2}
     .notice{padding:.875rem 1.25rem;border-radius:8px;margin-bottom:.625rem;border:1px solid}
     .notice-info{background:var(--blue-bg);color:var(--blue-text);border-color:var(--blue-border)}
     .notice-warning{background:var(--yellow-bg);color:var(--yellow-text);border-color:var(--yellow-border)}
@@ -82,7 +103,8 @@ export function renderStatusPage(slug: string, isCustomDomain = false): string {
 </head>
 <body>
 <div class="theme-btn">${themeToggleBtn()}</div>
-<div class="container">
+<div id="header-root"></div>
+<div class="container" id="bodyContainer">
   <div id="root"><div class="loading">Loading&hellip;</div></div>
 </div>
 <script>
@@ -135,6 +157,24 @@ export function renderStatusPage(slug: string, isCustomDomain = false): string {
       return '<img class="' + extraClass + '" src="' + esc(page.logo_url) + '" alt="' + esc(page.name) + '" style="height:38px;max-width:120px;object-fit:contain;border-radius:6px">';
     }
     return '<div class="hdr-logo ' + extraClass + '">' + esc(initials(page.name)) + '</div>';
+  }
+
+  let lastLoadedAt = null;
+  let nextLoadAt = null;
+
+  function formatClock(date) {
+    const h = date.getHours() % 12 || 12;
+    const ampm = date.getHours() >= 12 ? 'PM' : 'AM';
+    const mm = String(date.getMinutes()).padStart(2, '0');
+    const ss = String(date.getSeconds()).padStart(2, '0');
+    return h + ':' + mm + ':' + ss + ' ' + ampm;
+  }
+
+  function tickNavbarMeta() {
+    const el = document.getElementById('navbarMeta');
+    if (!el || !lastLoadedAt || !nextLoadAt) return;
+    const secsLeft = Math.max(0, Math.round((nextLoadAt - Date.now()) / 1000));
+    el.textContent = 'Last updated ' + formatClock(lastLoadedAt) + ' | Next update in ' + secsLeft + ' sec.';
   }
 
   function latencyGraph(buckets) {
@@ -274,12 +314,29 @@ export function renderStatusPage(slug: string, isCustomDomain = false): string {
       : '';
 
     applyBrandColor(page);
+    lastLoadedAt = new Date(data.generated_at);
+    nextLoadAt = Date.now() + 60000;
 
     const desc = page.description ? '<p>' + esc(page.description) + '</p>' : '';
-    let hdrHtml;
+    const isNavbar = page.header_template === 'navbar';
+    let hdrHtml = '';
+    let headerFullHtml = '';
+
     if (page.header_template === 'banner') {
-      hdrHtml = '<div class="hdr hdr-banner"><div class="row">' + logoHtml(page, '') +
-        '<div><h1>' + esc(page.name) + '</h1>' + desc + '</div></div></div>';
+      headerFullHtml = '<div class="hdr hdr-banner"><div class="hdr-inner"><div class="row">' + logoHtml(page, '') +
+        '<div><h1>' + esc(page.name) + '</h1>' + desc + '</div></div></div></div>';
+    } else if (isNavbar) {
+      const navbarSubtitle = page.description ? '<div class="navbar-subtitle">' + esc(page.description) + '</div>' : '';
+      headerFullHtml = '<div class="hdr-navbar"><div class="hdr-inner"><div class="navbar-top">' +
+        '<div class="navbar-brand">' + logoHtml(page, '') +
+          '<div><div class="navbar-title">' + esc(page.name) + '</div>' + navbarSubtitle + '</div>' +
+        '</div>' +
+        '<div class="navbar-right">' +
+          '<div class="navbar-status-label">Service status</div>' +
+          '<div class="navbar-meta" id="navbarMeta"></div>' +
+        '</div>' +
+        '<a class="navbar-bell" href="${rssHref}" target="_blank" rel="noopener" title="Subscribe via RSS" aria-label="Subscribe via RSS">&#128276;</a>' +
+        '</div></div></div>';
     } else if (page.header_template === 'compact') {
       hdrHtml = '<div class="hdr hdr-compact">' + logoHtml(page, '') +
         '<div class="meta"><h1>' + esc(page.name) + '</h1>' + desc + '</div></div>';
@@ -289,11 +346,18 @@ export function renderStatusPage(slug: string, isCustomDomain = false): string {
         '<h1>' + esc(page.name) + '</h1>' + desc + '</div>';
     }
 
+    document.getElementById('header-root').innerHTML = headerFullHtml;
+    document.getElementById('bodyContainer').classList.toggle('container-flush', isNavbar);
+
+    // In Navbar, the status banner overlaps the bar itself, so it has to be the
+    // first thing after the header — not the notice list — or its negative
+    // margin pulls it into whatever notice happens to be on top instead.
+    const overallHtml = '<div class="overall ' + ovClass + (isNavbar ? ' overall-floating' : '') + '">' + ovIcon + '&nbsp;' + ovText + '</div>';
+
     document.title = esc(page.name) + ' — Status';
     document.getElementById('root').innerHTML =
       hdrHtml +
-      noticeHtml +
-      '<div class="overall ' + ovClass + '">' + ovIcon + '&nbsp;' + ovText + '</div>' +
+      (isNavbar ? overallHtml + noticeHtml : noticeHtml + overallHtml) +
       '<div style="margin-bottom:2rem"><div class="sec-label">Services</div>' + items + '</div>' +
       '<div class="incidents-sec"><div class="sec-label" style="display:flex;justify-content:space-between;align-items:center">Past Incidents<a href="${historyHref}" style="font-size:.75rem;color:var(--brand,var(--text-faint));text-decoration:none;font-weight:400;text-transform:none;letter-spacing:0">View full history &rarr;</a></div>' + incidents + '</div>' +
       '<div class="footer">Last updated ' + new Date(data.generated_at).toUTCString() + ' &nbsp;&middot;&nbsp; <a href="${rssHref}" style="color:var(--brand,var(--text-faint));text-decoration:none" title="Subscribe via RSS">RSS feed</a></div>' +
@@ -304,10 +368,13 @@ export function renderStatusPage(slug: string, isCustomDomain = false): string {
           'Cloudflare Uptime' +
         '</a>' +
       '</div>';
+
+    tickNavbarMeta();
   }
 
   load();
   setInterval(load, 60000);
+  setInterval(tickNavbarMeta, 1000);
 </script>
 ${themeBodyScript()}
 </body>

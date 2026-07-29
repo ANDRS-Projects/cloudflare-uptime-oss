@@ -33,7 +33,7 @@ export async function createPage(c: Context<{ Bindings: Env }>) {
   return c.json({ id }, 201);
 }
 
-const HEADER_TEMPLATES = ['centered', 'banner', 'compact'];
+const HEADER_TEMPLATES = ['centered', 'banner', 'compact', 'navbar'];
 const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
 
 export async function updatePage(c: Context<{ Bindings: Env }>) {
