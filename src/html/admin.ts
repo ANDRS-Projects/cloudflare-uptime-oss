@@ -662,18 +662,45 @@ export function renderAdmin(hasAssets: boolean): string {
     return Math.floor(s / 86400) + 'd ago';
   }
 
+  const HM_PAGE_SIZE = 50;
+  let hmMonitorId = null;
+  let hmChecks = [];
+  let hmHasMore = false;
+  let hmLoadingMore = false;
+
   async function openHistoryModal(i) {
     const m = monitors[i];
+    hmMonitorId = m.id;
+    hmChecks = [];
+    hmHasMore = false;
     document.getElementById('hm-title').textContent = m.name + ' — Recent Checks';
     document.getElementById('hm-body').innerHTML = '<div style="text-align:center;padding:2rem;color:var(--text-faint)">Loading&hellip;</div>';
     document.getElementById('history-modal').classList.add('open');
-    const checks = await api('/api/monitors/' + m.id + '/checks?limit=50');
+    const checks = await api('/api/monitors/' + m.id + '/checks?limit=' + HM_PAGE_SIZE);
     if (!checks.length) {
       document.getElementById('hm-body').innerHTML = '<div style="text-align:center;padding:2rem;color:var(--text-faint)">No checks recorded yet.</div>';
       return;
     }
-    const hasJson = checks.some(c => c.json_value != null);
-    const rows = checks.map(c => {
+    hmChecks = checks;
+    hmHasMore = checks.length === HM_PAGE_SIZE;
+    renderHistoryTable();
+  }
+
+  async function loadMoreHistory() {
+    if (hmLoadingMore || !hmHasMore || !hmChecks.length) return;
+    hmLoadingMore = true;
+    renderHistoryTable();
+    const before = hmChecks[hmChecks.length - 1].checked_at;
+    const more = await api('/api/monitors/' + hmMonitorId + '/checks?limit=' + HM_PAGE_SIZE + '&before=' + before);
+    hmChecks = hmChecks.concat(more);
+    hmHasMore = more.length === HM_PAGE_SIZE;
+    hmLoadingMore = false;
+    renderHistoryTable();
+  }
+
+  function renderHistoryTable() {
+    const hasJson = hmChecks.some(c => c.json_value != null);
+    const rows = hmChecks.map(c => {
       const ok = c.ok === 1;
       const deg = c.degraded === 1;
       const dotState = ok ? (deg ? 'degraded' : 'up') : 'down';
@@ -691,8 +718,12 @@ export function renderAdmin(hasAssets: boolean): string {
         '</tr>';
     }).join('');
     const jsonHeader = hasJson ? '<th>JSON Value</th>' : '';
+    const loadMoreBtn = hmHasMore
+      ? '<div style="text-align:center;padding:.75rem"><button class="btn btn-ghost btn-sm" onclick="loadMoreHistory()"' + (hmLoadingMore ? ' disabled' : '') + '>' + (hmLoadingMore ? 'Loading&hellip;' : 'Load more') + '</button></div>'
+      : '';
     document.getElementById('hm-body').innerHTML =
-      '<table class="htable"><thead><tr><th>Time</th><th></th><th>HTTP</th><th>Latency</th>' + jsonHeader + '<th>Error</th></tr></thead><tbody>' + rows + '</tbody></table>';
+      '<table class="htable"><thead><tr><th>Time</th><th></th><th>HTTP</th><th>Latency</th>' + jsonHeader + '<th>Error</th></tr></thead><tbody>' + rows + '</tbody></table>' +
+      loadMoreBtn;
   }
 
   function closeHistoryModal() {
