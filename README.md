@@ -55,8 +55,8 @@ Self-hosted uptime monitoring on Cloudflare Workers with public status pages —
 
 <img width="1200" height="675" alt="drop-kit-landscape-1779790200368" src="https://github.com/user-attachments/assets/24cefe6b-8945-431b-bdac-140e35fd4a18" />
 <img width="1200" height="675" alt="drop-kit-landscape-1779791596122" src="https://github.com/user-attachments/assets/5939865b-11f8-420e-8413-f6eeddec0729" />
-<img width="1200" height="675" alt="drop-kit-landscape-1779791697387" src="https://github.com/user-attachments/assets/fbd14c50-8304-4d87-8908-275f5894f4c7" />
-<img width="1200" height="675" alt="drop-kit-landscape-1779962132600" src="https://github.com/user-attachments/assets/fba6377a-9b98-4bb6-b246-8e01f9d5211d" />
+<img width="1600" height="900" alt="drop-kit-youtube-banner-1785333964449" src="https://github.com/user-attachments/assets/7ce6cae7-31ac-49e2-a949-0202b7fbb228" />
+<img width="1600" height="900" alt="drop-kit-youtube-banner-1785333944471" src="https://github.com/user-attachments/assets/3945fa11-47ae-47d9-bc44-e0cf61eb7982" />
 
 
 
