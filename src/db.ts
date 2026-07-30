@@ -80,14 +80,48 @@ export async function getChecks(
 // gets back is. Fetching+looping over the raw rows for this was eating into
 // the Workers Free plan's 10ms/request CPU budget on status pages with
 // several high-frequency monitors.
-// Combines the 90-bucket uptime bar with uptime_30d/uptime_7d in one scan.
-// These used to be two separate queries (getUptimeSummary + getUptimeBucketBins)
-// that each independently scanned the full 30-day checked_at range — costing
-// ~2x the D1 rows_read of the single-fetch approach this whole optimization
-// was meant to improve on. bucketSize (30d/90 = 8h) divides both the 30-day
-// and 7-day windows evenly (7d/8h = 21), so the most recent 21 of the 90
-// buckets are exactly the last 7 days — summing their counts gives
-// uptime_7d for free from the same scan, no separate query needed.
+// Fixed epoch-aligned bucket width backing uptime_bucket_rollups. 30d/8h = 90
+// buckets, and 7d/8h = 21 exactly, which is what lets uptime_7d fall out of
+// the same 90-bucket scan as uptime_30d with no separate query.
+export const UPTIME_BUCKET_SECONDS = 8 * 3600;
+
+// Called from cron.ts right after every check insert. Upserts the one bucket
+// row that check falls into instead of the public status page or admin
+// dashboard having to scan the raw checks table (up to ~43k rows over 30
+// days for a 1-minute monitor) on every request. Cost here is O(1) per
+// check — an indexed upsert on the (monitor_id, bucket_start) primary key.
+export async function upsertUptimeBucket(
+  db: D1Database,
+  monitorId: string,
+  checkedAt: number,
+  ok: boolean,
+  degraded: boolean
+): Promise<void> {
+  const bucketStart = Math.floor(checkedAt / UPTIME_BUCKET_SECONDS) * UPTIME_BUCKET_SECONDS;
+  await db
+    .prepare(
+      `INSERT INTO uptime_bucket_rollups (monitor_id, bucket_start, cnt, up_cnt, degraded_cnt)
+       VALUES (?, ?, 1, ?, ?)
+       ON CONFLICT(monitor_id, bucket_start) DO UPDATE SET
+         cnt = cnt + 1,
+         up_cnt = up_cnt + excluded.up_cnt,
+         degraded_cnt = degraded_cnt + excluded.degraded_cnt`
+    )
+    .bind(monitorId, bucketStart, ok ? 1 : 0, degraded ? 1 : 0)
+    .run();
+}
+
+export async function deleteOldUptimeBuckets(db: D1Database, cutoff: number): Promise<void> {
+  await db.prepare('DELETE FROM uptime_bucket_rollups WHERE bucket_start < ?').bind(cutoff).run();
+}
+
+// Combines the 90-bucket uptime bar with uptime_30d/uptime_7d in one read.
+// Backed by uptime_bucket_rollups (kept current by cron.ts on every check)
+// rather than the raw checks table, so this is always a read of at most
+// `count` rows (90) regardless of check volume or visitor count — previously
+// this scanned the full 30-day checked_at range per request. `start` must be
+// aligned to UPTIME_BUCKET_SECONDS for bucket_idx to come out as a clean
+// integer.
 export async function getUptimeBucketsAndSummary(
   db: D1Database,
   monitorId: string,
@@ -101,19 +135,14 @@ export async function getUptimeBucketsAndSummary(
 }> {
   const r = await db
     .prepare(
-      `SELECT
-        CAST((checked_at - ?) / ? AS INTEGER) AS bucket_idx,
-        COUNT(*) AS cnt,
-        SUM(CASE WHEN ok = 1 THEN 1 ELSE 0 END) AS up_cnt,
-        SUM(CASE WHEN degraded = 1 THEN 1 ELSE 0 END) AS degraded_cnt
-      FROM checks
-      WHERE monitor_id = ? AND checked_at >= ?
-      GROUP BY bucket_idx`
+      `SELECT bucket_start, cnt, up_cnt, degraded_cnt
+       FROM uptime_bucket_rollups
+       WHERE monitor_id = ? AND bucket_start >= ?`
     )
-    .bind(start, bucketSize, monitorId, start)
-    .all<{ bucket_idx: number; cnt: number; up_cnt: number; degraded_cnt: number }>();
+    .bind(monitorId, start)
+    .all<{ bucket_start: number; cnt: number; up_cnt: number; degraded_cnt: number }>();
 
-  const byIdx = new Map(r.results.map((row) => [row.bucket_idx, row]));
+  const byIdx = new Map(r.results.map((row) => [Math.round((row.bucket_start - start) / bucketSize), row]));
   const bins = Array.from({ length: count }, (_, i) => {
     const row = byIdx.get(i);
     if (!row) return { hasAny: false, hasDegraded: false };
@@ -452,18 +481,29 @@ export async function deleteNotice(db: D1Database, id: string): Promise<void> {
   await db.prepare('DELETE FROM notices WHERE id = ?').bind(id).run();
 }
 
+// Backed by uptime_bucket_rollups (see getUptimeBucketsAndSummary above)
+// instead of a raw COUNT/SUM scan over checks — the admin dashboard's
+// monitor list calls this once per monitor on every load, uncached (it's an
+// authenticated route showing live data), so a raw 30-day scan here was the
+// single largest source of D1 rows_read in production: ~44k rows per
+// monitor per admin page load.
 export async function getUptimePercent(
   db: D1Database,
   monitorId: string,
   days = 30
 ): Promise<number> {
-  const since = Math.floor(Date.now() / 1000) - days * 86400;
+  // Floor-aligned to the bucket grid so the bucket straddling the cutoff is
+  // included rather than dropped — trades a few hours of extra history at
+  // the edge for staying consistent with getUptimeBucketsAndSummary's cutoff.
+  const since =
+    Math.floor((Math.floor(Date.now() / 1000) - days * 86400) / UPTIME_BUCKET_SECONDS) *
+    UPTIME_BUCKET_SECONDS;
   const row = await db
     .prepare(
-      'SELECT COUNT(*) as total, SUM(ok) as up FROM checks WHERE monitor_id = ? AND checked_at >= ?'
+      'SELECT SUM(cnt) as total, SUM(up_cnt) as up FROM uptime_bucket_rollups WHERE monitor_id = ? AND bucket_start >= ?'
     )
     .bind(monitorId, since)
-    .first<{ total: number; up: number }>();
-  if (!row || row.total === 0) return 100;
-  return Math.round((row.up / row.total) * 1000) / 10;
+    .first<{ total: number | null; up: number | null }>();
+  if (!row || !row.total) return 100;
+  return Math.round(((row.up ?? 0) / row.total) * 1000) / 10;
 }

@@ -306,6 +306,10 @@ Migration files for each schema change are kept in `migrations/` and can be appl
 npx wrangler d1 migrations apply uptime-monitor --remote
 ```
 
+**Run migrations before you deploy, not after.** The Worker's cron job writes to any table added by a migration on every check — if you deploy new code before applying its migration, cron starts erroring on that write until you catch up (harmless — it just means a gap in that table until you apply it — but worth avoiding). `deploy.yml` in this repo is manual-trigger by default (`workflow_dispatch`), so you're in control of the order either way: run `npx wrangler d1 migrations apply uptime-monitor --remote` first, then deploy. A fresh install doesn't need this — `schema.sql` already includes every table, and `setup.sh` / step 4 of the Deployment Guide applies it before the deploy step.
+
+Migration `007_add_uptime_bucket_rollups.sql` (added in 1.6.2) is the one migration here that isn't a plain `ALTER TABLE` — it creates a new `uptime_bucket_rollups` table and backfills it from your existing `checks` data in the same statement, so the uptime bar and uptime% don't show a gap for the 30 days before you upgraded. Apply it the same way: `npx wrangler d1 migrations apply uptime-monitor --remote`.
+
 **Custom domains require Cloudflare DNS — and no pre-created DNS records.**
 `custom_domain = true` in `wrangler.toml` only works when the domain's zone is on Cloudflare DNS.
 Wrangler creates the DNS record automatically on deploy — do not create it manually first or the
@@ -316,12 +320,14 @@ to your `.workers.dev` URL and omit `custom_domain`.
 Cloudflare cron triggers fire from the datacenter nearest to your D1 region — not
 from multiple global locations. Check latency results reflect that single origin's network path.
 
-**Public status pages can lag up to 30 seconds behind the latest check or incident update.**
+**Public status pages can lag up to 65 seconds behind the latest check or incident update.**
 Both public data endpoints (`/status/:slug/data`, `/status/:slug/history/data`) sit behind a
-30-second Workers Cache API layer, since the underlying data can't change faster than the cron
-interval (1 minute minimum) and status pages can have many concurrent viewers. A new check
-result, resolved incident, or notice may take up to 30s to appear on the public page — the
-admin dashboard is not cached and always reflects live data.
+65-second Workers Cache API layer — just over the page's 60-second client-side auto-refresh
+interval, so a visitor's own refresh loop can actually land on a cache hit instead of missing
+every single time. The underlying data can't change faster than the cron interval (1 minute
+minimum) anyway, and status pages can have many concurrent viewers. A new check result, resolved
+incident, or notice may take up to 65s to appear on the public page — the admin dashboard is not
+cached and always reflects live data.
 
 **The admin dashboard has no authentication UI.**
 All admin API routes require an `X-API-Key` header matching the `API_KEY` secret. The

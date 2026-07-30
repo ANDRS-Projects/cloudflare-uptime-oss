@@ -58,23 +58,21 @@ async function buildPublicStatusPage(c: Context<{ Bindings: Env }>): Promise<Res
   const minDurationMinutes = page.min_incident_duration_minutes ?? 0;
 
   const now = Math.floor(Date.now() / 1000);
-  const BUCKET_COUNT = 90;
-  const bucketWindowSeconds = 30 * 86400;
-  const bucketWindowStart = now - bucketWindowSeconds;
-  const bucketSize = bucketWindowSeconds / BUCKET_COUNT;
+  const bucketSize = db.UPTIME_BUCKET_SECONDS;
+  const BUCKET_COUNT = (30 * 86400) / bucketSize;
+  // Aligned to the fixed bucket grid uptime_bucket_rollups is keyed on —
+  // required for bucket_idx math in getUptimeBucketsAndSummary to line up.
+  const bucketWindowStart = Math.floor((now - 30 * 86400) / bucketSize) * bucketSize;
 
   const monitorsWithData = await Promise.all(
     monitors.map(async (m) => {
-      // Uptime%, the latency graph, and the uptime bar are all bucketed
-      // aggregates over the checks table — computed in SQL via GROUP BY on a
-      // computed bucket index instead of fetching the raw ~43k rows a
-      // 1-minute-interval monitor can have in 30 days and bucketing them in
-      // JS. D1 still scans the same rows (rows_read cost unchanged vs. a
-      // single raw fetch), but returns at most ~90 aggregated rows; and D1
-      // query execution isn't counted against the Worker's CPU-time limit —
-      // only what the Worker does with the rows it gets back is. uptime_30d/
-      // uptime_7d and the bucket bar come from one combined query (they'd
-      // otherwise be two independent full 30-day scans of the same rows).
+      // uptime_30d/uptime_7d and the 90-bucket uptime bar read from
+      // uptime_bucket_rollups (kept current by cron.ts on every check),
+      // never the raw checks table — a bounded ~90-row read regardless of
+      // check volume or visitor count, instead of a full 30-day scan
+      // (up to ~43k rows for a 1-minute-interval monitor) on every page view.
+      // The latency graph is the one remaining live GROUP BY, since its
+      // 24h window is already cheap.
       const [latest, incidents, uptime, latencyBuckets, bucketSpans] = await Promise.all([
         db.getLatestCheck(c.env.DB, m.id),
         db.getIncidents(c.env.DB, m.id, 5, minDurationMinutes),

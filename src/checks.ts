@@ -84,6 +84,12 @@ export async function runCheck(monitor: Monitor): Promise<CheckResult> {
       : response.status >= 200 && response.status < 400;
 
     if (!statusOk) {
+      // Body is never read on this path — cancel it explicitly, otherwise the
+      // runtime holds the connection open. With several monitors checked
+      // concurrently in one cron tick, unread bodies stack up against the
+      // concurrent-connection limit and the runtime force-cancels the oldest
+      // one to avoid deadlock ("stalled HTTP response" warning in Logs).
+      response.body?.cancel();
       return { ok: false, degraded: false, status_code: response.status, latency_ms: Date.now() - start, error: null, json_value: null };
     }
 
@@ -112,6 +118,9 @@ export async function runCheck(monitor: Monitor): Promise<CheckResult> {
       };
     }
 
+    // Same as above — a plain up/down check (no json_path configured) never
+    // reads the body, so it must be canceled explicitly here too.
+    response.body?.cancel();
     return { ok: true, degraded: false, status_code: response.status, latency_ms: Date.now() - start, error: null, json_value: null };
   } catch (err) {
     const isTimeout = err instanceof Error && err.name === 'AbortError';

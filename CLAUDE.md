@@ -1,6 +1,6 @@
 # cloudflare-uptime
 
-**Version:** 1.5.6 | **Runtime:** Cloudflare Workers | **Stack:** TypeScript + Hono + D1 + R2
+**Version:** 1.6.2 | **Runtime:** Cloudflare Workers | **Stack:** TypeScript + Hono + D1 + R2
 
 ## What
 
@@ -92,7 +92,11 @@ src/alerts.ts        # Webhook format: Slack/Discord compatible attachments payl
 
 - **Schema migrations are manual.** `wrangler deploy` does NOT run `schema.sql`. Use
   `wrangler d1 execute uptime-monitor --remote --file=schema.sql` for the initial apply.
-  For ALTER TABLE changes, run raw SQL in the Cloudflare D1 Console.
+  Subsequent changes go in a numbered `migrations/NNN_*.sql` file, applied with
+  `wrangler d1 migrations apply uptime-monitor --remote`. Always apply the migration
+  *before* deploying code that depends on it — if a migration adds a table that cron
+  writes to on every check, deploying first means cron errors on that write until the
+  migration catches up.
 - **No frontend build step.** All HTML is returned as template-literal strings from
   `src/html/admin.ts` and `src/html/status.ts`. Do not introduce a bundler.
 - **`workers_dev = true`** in `wrangler.toml` exposes the Worker on a `.workers.dev` URL.
