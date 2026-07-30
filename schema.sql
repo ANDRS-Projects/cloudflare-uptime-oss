@@ -27,6 +27,20 @@ CREATE TABLE IF NOT EXISTS checks (
 
 CREATE INDEX IF NOT EXISTS idx_checks_monitor_checked ON checks(monitor_id, checked_at DESC);
 
+-- Incrementally maintained by cron.ts on every check insert: one row per
+-- monitor per fixed 8-hour epoch-aligned window. The public status page and
+-- the admin dashboard's uptime% both read only this table, instead of
+-- scanning the full checks table (which can be tens of thousands of rows per
+-- monitor over 30 days) on every request.
+CREATE TABLE IF NOT EXISTS uptime_bucket_rollups (
+  monitor_id TEXT NOT NULL REFERENCES monitors(id) ON DELETE CASCADE,
+  bucket_start INTEGER NOT NULL,
+  cnt INTEGER NOT NULL DEFAULT 0,
+  up_cnt INTEGER NOT NULL DEFAULT 0,
+  degraded_cnt INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (monitor_id, bucket_start)
+);
+
 CREATE TABLE IF NOT EXISTS incidents (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   monitor_id TEXT NOT NULL REFERENCES monitors(id) ON DELETE CASCADE,

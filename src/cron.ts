@@ -12,18 +12,24 @@ export async function runCronJob(env: Env): Promise<void> {
     (m) => m.active === 1 && minuteOfDay % m.interval_minutes === 0
   );
 
-  await Promise.allSettled(due.map((m) => checkMonitor(env, m)));
+  await Promise.allSettled(due.map((m) => checkMonitor(env, m, now)));
 
   // Run cleanup once a day (at midnight UTC)
   if (minuteOfDay % 1440 === 0) {
     const cutoff = now - 90 * 86400;
     await env.DB.prepare('DELETE FROM checks WHERE checked_at < ?').bind(cutoff).run();
+    // Rollups are only ever read over the last 30 days (see api/public.ts),
+    // but kept at the same 90-day retention as raw checks for headroom.
+    await db.deleteOldUptimeBuckets(env.DB, cutoff);
   }
 }
 
-async function checkMonitor(env: Env, monitor: Monitor): Promise<void> {
+async function checkMonitor(env: Env, monitor: Monitor, now: number): Promise<void> {
   const result = await checkWithRetry(monitor);
-  await db.createCheck(env.DB, monitor.id, result);
+  await Promise.all([
+    db.createCheck(env.DB, monitor.id, result),
+    db.upsertUptimeBucket(env.DB, monitor.id, now, result.ok, result.degraded),
+  ]);
 
   const openIncident = await db.getOpenIncident(env.DB, monitor.id);
 
