@@ -308,7 +308,7 @@ npx wrangler d1 migrations apply uptime-monitor --remote
 
 **Run migrations before you deploy, not after.** The Worker's cron job writes to any table added by a migration on every check — if you deploy new code before applying its migration, cron starts erroring on that write until you catch up (harmless — it just means a gap in that table until you apply it — but worth avoiding). `deploy.yml` in this repo is manual-trigger by default (`workflow_dispatch`), so you're in control of the order either way: run `npx wrangler d1 migrations apply uptime-monitor --remote` first, then deploy. A fresh install doesn't need this — `schema.sql` already includes every table, and `setup.sh` / step 4 of the Deployment Guide applies it before the deploy step.
 
-Migration `007_add_uptime_bucket_rollups.sql` (added in 1.5.7) is the one migration here that isn't a plain `ALTER TABLE` — it creates a new `uptime_bucket_rollups` table and backfills it from your existing `checks` data in the same statement, so the uptime bar and uptime% don't show a gap for the 30 days before you upgraded. Apply it the same way: `npx wrangler d1 migrations apply uptime-monitor --remote`.
+Migration `007_add_uptime_bucket_rollups.sql` (added in 1.6.2) is the one migration here that isn't a plain `ALTER TABLE` — it creates a new `uptime_bucket_rollups` table and backfills it from your existing `checks` data in the same statement, so the uptime bar and uptime% don't show a gap for the 30 days before you upgraded. Apply it the same way: `npx wrangler d1 migrations apply uptime-monitor --remote`.
 
 **Custom domains require Cloudflare DNS — and no pre-created DNS records.**
 `custom_domain = true` in `wrangler.toml` only works when the domain's zone is on Cloudflare DNS.
