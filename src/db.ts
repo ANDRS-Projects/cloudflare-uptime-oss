@@ -80,55 +80,64 @@ export async function getChecks(
 // gets back is. Fetching+looping over the raw rows for this was eating into
 // the Workers Free plan's 10ms/request CPU budget on status pages with
 // several high-frequency monitors.
-export async function getUptimeBucketBins(
+// Combines the 90-bucket uptime bar with uptime_30d/uptime_7d in one scan.
+// These used to be two separate queries (getUptimeSummary + getUptimeBucketBins)
+// that each independently scanned the full 30-day checked_at range — costing
+// ~2x the D1 rows_read of the single-fetch approach this whole optimization
+// was meant to improve on. bucketSize (30d/90 = 8h) divides both the 30-day
+// and 7-day windows evenly (7d/8h = 21), so the most recent 21 of the 90
+// buckets are exactly the last 7 days — summing their counts gives
+// uptime_7d for free from the same scan, no separate query needed.
+export async function getUptimeBucketsAndSummary(
   db: D1Database,
   monitorId: string,
   start: number,
   bucketSize: number,
   count: number
-): Promise<Array<{ hasAny: boolean; hasDegraded: boolean }>> {
+): Promise<{
+  bins: Array<{ hasAny: boolean; hasDegraded: boolean }>;
+  uptime30: number;
+  uptime7: number;
+}> {
   const r = await db
     .prepare(
       `SELECT
         CAST((checked_at - ?) / ? AS INTEGER) AS bucket_idx,
         COUNT(*) AS cnt,
+        SUM(CASE WHEN ok = 1 THEN 1 ELSE 0 END) AS up_cnt,
         SUM(CASE WHEN degraded = 1 THEN 1 ELSE 0 END) AS degraded_cnt
       FROM checks
       WHERE monitor_id = ? AND checked_at >= ?
       GROUP BY bucket_idx`
     )
     .bind(start, bucketSize, monitorId, start)
-    .all<{ bucket_idx: number; cnt: number; degraded_cnt: number }>();
+    .all<{ bucket_idx: number; cnt: number; up_cnt: number; degraded_cnt: number }>();
 
   const byIdx = new Map(r.results.map((row) => [row.bucket_idx, row]));
-  return Array.from({ length: count }, (_, i) => {
+  const bins = Array.from({ length: count }, (_, i) => {
     const row = byIdx.get(i);
     if (!row) return { hasAny: false, hasDegraded: false };
     return { hasAny: row.cnt > 0, hasDegraded: row.degraded_cnt > 0 };
   });
-}
 
-export async function getUptimeSummary(
-  db: D1Database,
-  monitorId: string,
-  since30d: number,
-  since7d: number
-): Promise<{ uptime30: number; uptime7: number }> {
-  const row = await db
-    .prepare(
-      `SELECT
-        SUM(CASE WHEN checked_at >= ? THEN 1 ELSE 0 END) AS total30,
-        SUM(CASE WHEN checked_at >= ? AND ok = 1 THEN 1 ELSE 0 END) AS up30,
-        SUM(CASE WHEN checked_at >= ? THEN 1 ELSE 0 END) AS total7,
-        SUM(CASE WHEN checked_at >= ? AND ok = 1 THEN 1 ELSE 0 END) AS up7
-      FROM checks WHERE monitor_id = ? AND checked_at >= ?`
-    )
-    .bind(since30d, since30d, since7d, since7d, monitorId, since30d)
-    .first<{ total30: number; up30: number; total7: number; up7: number }>();
+  const sevenDayBucketCount = Math.round((7 * 86400) / bucketSize);
+  let total30 = 0, up30 = 0, total7 = 0, up7 = 0;
+  for (let i = 0; i < count; i++) {
+    const row = byIdx.get(i);
+    if (!row) continue;
+    total30 += row.cnt;
+    up30 += row.up_cnt;
+    if (i >= count - sevenDayBucketCount) {
+      total7 += row.cnt;
+      up7 += row.up_cnt;
+    }
+  }
 
-  const uptime30 = !row || !row.total30 ? 100 : Math.round((row.up30 / row.total30) * 1000) / 10;
-  const uptime7 = !row || !row.total7 ? 100 : Math.round((row.up7 / row.total7) * 1000) / 10;
-  return { uptime30, uptime7 };
+  return {
+    bins,
+    uptime30: total30 ? Math.round((up30 / total30) * 1000) / 10 : 100,
+    uptime7: total7 ? Math.round((up7 / total7) * 1000) / 10 : 100,
+  };
 }
 
 // Aggregates in SQL instead of fetching raw rows: D1 still scans the same

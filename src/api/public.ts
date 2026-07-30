@@ -5,8 +5,11 @@ import * as db from '../db';
 // Short edge cache for public GETs: the underlying data changes at most once a
 // minute (cron interval), but the status page auto-refreshes client-side every
 // 60s and can be viewed by many visitors at once — without this, every one of
-// those hits re-runs the full D1 query set below.
-const CACHE_TTL_SECONDS = 30;
+// those hits re-runs the full D1 query set below. Must be >= the client's
+// refresh interval (60s in src/html/status.ts) — a shorter TTL guarantees a
+// cache miss on every single auto-refresh, defeating the cache for the exact
+// traffic pattern it exists to absorb.
+const CACHE_TTL_SECONDS = 65;
 
 async function withEdgeCache(
   c: Context<{ Bindings: Env }>,
@@ -66,18 +69,17 @@ async function buildPublicStatusPage(c: Context<{ Bindings: Env }>): Promise<Res
       // aggregates over the checks table — computed in SQL via GROUP BY on a
       // computed bucket index instead of fetching the raw ~43k rows a
       // 1-minute-interval monitor can have in 30 days and bucketing them in
-      // JS. D1 still scans the same rows (rows_read cost unchanged), but
-      // returns at most ~90 aggregated rows; and D1 query execution isn't
-      // counted against the Worker's CPU-time limit — only what the Worker
-      // does with the rows it gets back is. The old full-fetch-and-loop
-      // approach was blowing the Workers Free plan's 10ms/request CPU budget
-      // on status pages with several high-frequency monitors.
-      const [latest, incidents, uptime, latencyBuckets, uptimeBins, bucketSpans] = await Promise.all([
+      // JS. D1 still scans the same rows (rows_read cost unchanged vs. a
+      // single raw fetch), but returns at most ~90 aggregated rows; and D1
+      // query execution isn't counted against the Worker's CPU-time limit —
+      // only what the Worker does with the rows it gets back is. uptime_30d/
+      // uptime_7d and the bucket bar come from one combined query (they'd
+      // otherwise be two independent full 30-day scans of the same rows).
+      const [latest, incidents, uptime, latencyBuckets, bucketSpans] = await Promise.all([
         db.getLatestCheck(c.env.DB, m.id),
         db.getIncidents(c.env.DB, m.id, 5, minDurationMinutes),
-        db.getUptimeSummary(c.env.DB, m.id, now - 30 * 86400, now - 7 * 86400),
+        db.getUptimeBucketsAndSummary(c.env.DB, m.id, bucketWindowStart, bucketSize, BUCKET_COUNT),
         db.getLatencyBucketsAgg(c.env.DB, m.id, now - 86400),
-        db.getUptimeBucketBins(c.env.DB, m.id, bucketWindowStart, bucketSize, BUCKET_COUNT),
         db.getIncidentSpans(c.env.DB, m.id, bucketWindowStart, minDurationMinutes),
       ]);
 
@@ -90,7 +92,7 @@ async function buildPublicStatusPage(c: Context<{ Bindings: Env }>): Promise<Res
         uptime_7d: uptime.uptime7,
         latency_ms: latest?.latency_ms ?? null,
         incidents,
-        buckets: buildUptimeBuckets(uptimeBins, bucketSpans, bucketWindowStart, bucketSize),
+        buckets: buildUptimeBuckets(uptime.bins, bucketSpans, bucketWindowStart, bucketSize),
         latency_24h: latencyBuckets,
       };
     })
