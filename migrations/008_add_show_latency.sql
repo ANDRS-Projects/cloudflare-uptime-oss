@@ -1,0 +1,1 @@
+ALTER TABLE status_pages ADD COLUMN show_latency INTEGER NOT NULL DEFAULT 1;

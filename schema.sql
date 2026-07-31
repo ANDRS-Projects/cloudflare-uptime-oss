@@ -63,6 +63,7 @@ CREATE TABLE IF NOT EXISTS status_pages (
   min_incident_duration_minutes INTEGER NOT NULL DEFAULT 0,
   header_template TEXT NOT NULL DEFAULT 'centered',
   brand_color TEXT,
+  show_latency INTEGER NOT NULL DEFAULT 1,
   created_at INTEGER NOT NULL DEFAULT (unixepoch())
 );
 
