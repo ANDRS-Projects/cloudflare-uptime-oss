@@ -26,10 +26,7 @@ export async function runCronJob(env: Env): Promise<void> {
 
 async function checkMonitor(env: Env, monitor: Monitor, now: number): Promise<void> {
   const result = await checkWithRetry(monitor);
-  await Promise.all([
-    db.createCheck(env.DB, monitor.id, result),
-    db.upsertUptimeBucket(env.DB, monitor.id, now, result.ok, result.degraded),
-  ]);
+  await db.recordCheck(env.DB, monitor.id, now, result);
 
   const openIncident = await db.getOpenIncident(env.DB, monitor.id);
 

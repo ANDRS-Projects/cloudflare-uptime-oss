@@ -85,32 +85,6 @@ export async function getChecks(
 // the same 90-bucket scan as uptime_30d with no separate query.
 export const UPTIME_BUCKET_SECONDS = 8 * 3600;
 
-// Called from cron.ts right after every check insert. Upserts the one bucket
-// row that check falls into instead of the public status page or admin
-// dashboard having to scan the raw checks table (up to ~43k rows over 30
-// days for a 1-minute monitor) on every request. Cost here is O(1) per
-// check — an indexed upsert on the (monitor_id, bucket_start) primary key.
-export async function upsertUptimeBucket(
-  db: D1Database,
-  monitorId: string,
-  checkedAt: number,
-  ok: boolean,
-  degraded: boolean
-): Promise<void> {
-  const bucketStart = Math.floor(checkedAt / UPTIME_BUCKET_SECONDS) * UPTIME_BUCKET_SECONDS;
-  await db
-    .prepare(
-      `INSERT INTO uptime_bucket_rollups (monitor_id, bucket_start, cnt, up_cnt, degraded_cnt)
-       VALUES (?, ?, 1, ?, ?)
-       ON CONFLICT(monitor_id, bucket_start) DO UPDATE SET
-         cnt = cnt + 1,
-         up_cnt = up_cnt + excluded.up_cnt,
-         degraded_cnt = degraded_cnt + excluded.degraded_cnt`
-    )
-    .bind(monitorId, bucketStart, ok ? 1 : 0, degraded ? 1 : 0)
-    .run();
-}
-
 export async function deleteOldUptimeBuckets(db: D1Database, cutoff: number): Promise<void> {
   await db.prepare('DELETE FROM uptime_bucket_rollups WHERE bucket_start < ?').bind(cutoff).run();
 }
@@ -209,17 +183,38 @@ export async function getLatencyBucketsAgg(
   });
 }
 
-export async function createCheck(
+// Writes the check row and its uptime_bucket_rollups upsert in a single D1
+// round-trip via batch(), instead of two separate prepared-statement calls.
+// Each D1 call has real Worker-side dispatch overhead (constructing and
+// sending the RPC), which counts against CPU time even though D1's own query
+// execution doesn't — cron.ts calls this once per due monitor in the same
+// invocation, so on an account with several dozen monitors, going from one
+// round-trip per monitor to two was enough on its own to push the Worker
+// past the free tier's 10ms CPU-time budget on every single cron tick.
+export async function recordCheck(
   db: D1Database,
   monitorId: string,
+  checkedAt: number,
   result: CheckResult
 ): Promise<void> {
-  await db
-    .prepare(
-      'INSERT INTO checks (monitor_id, status_code, ok, degraded, latency_ms, error, json_value) VALUES (?, ?, ?, ?, ?, ?, ?)'
-    )
-    .bind(monitorId, result.status_code, result.ok ? 1 : 0, result.degraded ? 1 : 0, result.latency_ms, result.error, result.json_value ?? null)
-    .run();
+  const bucketStart = Math.floor(checkedAt / UPTIME_BUCKET_SECONDS) * UPTIME_BUCKET_SECONDS;
+  await db.batch([
+    db
+      .prepare(
+        'INSERT INTO checks (monitor_id, status_code, ok, degraded, latency_ms, error, json_value) VALUES (?, ?, ?, ?, ?, ?, ?)'
+      )
+      .bind(monitorId, result.status_code, result.ok ? 1 : 0, result.degraded ? 1 : 0, result.latency_ms, result.error, result.json_value ?? null),
+    db
+      .prepare(
+        `INSERT INTO uptime_bucket_rollups (monitor_id, bucket_start, cnt, up_cnt, degraded_cnt)
+         VALUES (?, ?, 1, ?, ?)
+         ON CONFLICT(monitor_id, bucket_start) DO UPDATE SET
+           cnt = cnt + 1,
+           up_cnt = up_cnt + excluded.up_cnt,
+           degraded_cnt = degraded_cnt + excluded.degraded_cnt`
+      )
+      .bind(monitorId, bucketStart, result.ok ? 1 : 0, result.degraded ? 1 : 0),
+  ]);
 }
 
 export async function getOpenIncident(
