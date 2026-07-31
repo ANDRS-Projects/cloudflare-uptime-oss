@@ -72,12 +72,13 @@ async function buildPublicStatusPage(c: Context<{ Bindings: Env }>): Promise<Res
       // check volume or visitor count, instead of a full 30-day scan
       // (up to ~43k rows for a 1-minute-interval monitor) on every page view.
       // The latency graph is the one remaining live GROUP BY, since its
-      // 24h window is already cheap.
+      // 24h window is already cheap — skipped entirely when the page has
+      // opted out, saving that query rather than just hiding it client-side.
       const [latest, incidents, uptime, latencyBuckets, bucketSpans] = await Promise.all([
         db.getLatestCheck(c.env.DB, m.id),
         db.getIncidents(c.env.DB, m.id, 5, minDurationMinutes),
         db.getUptimeBucketsAndSummary(c.env.DB, m.id, bucketWindowStart, bucketSize, BUCKET_COUNT),
-        db.getLatencyBucketsAgg(c.env.DB, m.id, now - 86400),
+        page.show_latency ? db.getLatencyBucketsAgg(c.env.DB, m.id, now - 86400) : Promise.resolve(null),
         db.getIncidentSpans(c.env.DB, m.id, bucketWindowStart, minDurationMinutes),
       ]);
 

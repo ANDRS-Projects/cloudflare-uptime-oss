@@ -535,6 +535,12 @@ export function renderAdmin(hasAssets: boolean): string {
     await loadPages();
   }
 
+  async function setShowLatency(pageId, show) {
+    await api('/api/pages/' + pageId, { method: 'PUT', body: JSON.stringify({ show_latency: show ? 1 : 0 }) });
+    toast(show ? 'Response time graph shown' : 'Response time graph hidden');
+    await loadPages();
+  }
+
   async function setBrandColor(pageId, color) {
     await api('/api/pages/' + pageId, { method: 'PUT', body: JSON.stringify({ brand_color: color || null }) });
     toast(color ? 'Brand color saved' : 'Brand color reset');
@@ -644,6 +650,10 @@ export function renderAdmin(hasAssets: boolean): string {
         '<option value="30"' + (p.min_incident_duration_minutes === 30 ? ' selected' : '') + '>30 minutes</option>' +
         '<option value="60"' + (p.min_incident_duration_minutes === 60 ? ' selected' : '') + '>60 minutes</option>' +
         '</select>' +
+        '</div>' +
+        '<div class="domain-row">' +
+        '<span style="font-size:.8rem;color:var(--text-muted);flex:1">Show response time graph</span>' +
+        '<input type="checkbox"' + (p.show_latency ? ' checked' : '') + ' onchange="setShowLatency(pages[' + pi + '].id,this.checked)" style="width:1rem;height:1rem;cursor:pointer">' +
         '</div>' +
         '</div>';
     }).join('');

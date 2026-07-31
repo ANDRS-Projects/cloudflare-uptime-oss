@@ -51,6 +51,7 @@ export interface StatusPage {
   min_incident_duration_minutes: number;
   header_template: 'centered' | 'banner' | 'compact' | 'navbar';
   brand_color: string | null;
+  show_latency: number;
   created_at: number;
 }
 

@@ -29,6 +29,7 @@ export async function createPage(c: Context<{ Bindings: Env }>) {
     min_incident_duration_minutes: 0,
     header_template: 'centered',
     brand_color: null,
+    show_latency: 1,
   });
   return c.json({ id }, 201);
 }
@@ -40,7 +41,7 @@ export async function updatePage(c: Context<{ Bindings: Env }>) {
   const id = c.req.param('id');
   if (!id) return c.json({ error: 'missing id' }, 400);
   const body = await c.req.json<Record<string, unknown>>();
-  const allowed = ['name', 'slug', 'description', 'custom_domain', 'logo_url', 'incident_history_days', 'min_incident_duration_minutes', 'header_template', 'brand_color'];
+  const allowed = ['name', 'slug', 'description', 'custom_domain', 'logo_url', 'incident_history_days', 'min_incident_duration_minutes', 'header_template', 'brand_color', 'show_latency'];
   const updates = Object.fromEntries(
     Object.entries(body).filter(([k]) => allowed.includes(k))
   );
