@@ -44,7 +44,8 @@ Self-hosted uptime monitoring on Cloudflare Workers with public status pages —
 - **Dark mode** — full light / dark / system theme support across the admin dashboard, status pages, and history pages; toggle persists via `localStorage`
 - **Slack and Discord webhook alerts** — per-monitor webhooks fire on incident open and close
 - **Maintenance notices** — create notices that appear on status pages; resolved notices stay visible for 24 hours with a "Resolved" badge
-- **Cron-based checks** — Cloudflare cron triggers run the check loop on your configured schedule
+- **Cron-based checks** — Cloudflare cron triggers run the check loop on your configured schedule; per-monitor check timing is staggered by a deterministic offset so monitors sharing a common-multiple interval (e.g. 1/5/10/30 minutes) don't all land in the same tick
+- **Self-monitoring health check** — a separate, low-frequency cron watches for monitors that have stopped reporting on schedule (a sign the check loop itself isn't completing) and shows a dashboard banner; optionally fires a Slack/Discord webhook on state changes (`HEALTH_ALERT_WEBHOOK`)
 - **R2 asset storage** — logo uploads stored in and served from Cloudflare R2
 - **CI/CD via GitHub Actions** — add `CLOUDFLARE_API_TOKEN` as a repo secret and trigger deploys manually (or change the workflow trigger to auto-deploy on push)
 - **Security scanning** — Trivy (dependency CVEs) and Gitleaks (secret detection) run on every push
@@ -224,6 +225,7 @@ There is no traditional `.env` file — see `.env.example` for a full annotated 
 | Secret | Required | Description |
 |--------|----------|-------------|
 | `API_KEY` | Yes | Authenticates all `/api/*` requests via the `X-API-Key` header |
+| `HEALTH_ALERT_WEBHOOK` | No | Slack/Discord webhook for self-monitoring alerts — fires when monitor checks stop landing on schedule (see `src/health.ts`) |
 
 ### GitHub Actions secrets (CI/CD)
 
@@ -312,6 +314,15 @@ npx wrangler d1 migrations apply uptime-monitor --remote
 Migration `007_add_uptime_bucket_rollups.sql` (added in 1.6.2) is the one migration here that isn't a plain `ALTER TABLE` — it creates a new `uptime_bucket_rollups` table and backfills it from your existing `checks` data in the same statement, so the uptime bar and uptime% don't show a gap for the 30 days before you upgraded. Apply it the same way: `npx wrangler d1 migrations apply uptime-monitor --remote`.
 
 Migration `008_add_show_latency.sql` adds a per-status-page toggle for the response time graph (`show_latency`, defaults to on — existing pages keep showing it unless you turn it off from the admin dashboard).
+
+Migration `009_add_worker_health.sql` adds the `worker_health` table backing the self-monitoring health check. Unlike the other migrations, this one also needs a `wrangler.toml` change that isn't part of the migration itself: add a second cron trigger so the health check runs independently of the 1-minute check loop —
+
+```toml
+[triggers]
+crons = ["* * * * *", "*/15 * * * *"]
+```
+
+Apply the migration before deploying the updated code, same rule as above — otherwise the health-check cron errors on every tick until the table exists.
 
 **Custom domains require Cloudflare DNS — and no pre-created DNS records.**
 `custom_domain = true` in `wrangler.toml` only works when the domain's zone is on Cloudflare DNS.

@@ -511,6 +511,40 @@ export async function deleteNotice(db: D1Database, id: string): Promise<void> {
   await db.prepare('DELETE FROM notices WHERE id = ?').bind(id).run();
 }
 
+// One row per active monitor with its most recent check timestamp (or null
+// if it's never been checked yet), in a single round-trip regardless of
+// monitor count. Backing query for the self-monitoring staleness check —
+// idx_checks_monitor_checked(monitor_id, checked_at DESC) lets SQLite resolve
+// MAX(checked_at) per group without a full table scan.
+export async function getMonitorStaleness(
+  db: D1Database
+): Promise<Array<{ id: string; name: string; interval_minutes: number; last_checked_at: number | null }>> {
+  const r = await db
+    .prepare(
+      `SELECT m.id, m.name, m.interval_minutes, MAX(c.checked_at) AS last_checked_at
+       FROM monitors m
+       LEFT JOIN checks c ON c.monitor_id = m.id
+       WHERE m.active = 1
+       GROUP BY m.id`
+    )
+    .all<{ id: string; name: string; interval_minutes: number; last_checked_at: number | null }>();
+  return r.results;
+}
+
+export async function getWorkerHealthState(db: D1Database): Promise<boolean> {
+  const row = await db
+    .prepare('SELECT unhealthy FROM worker_health WHERE id = 1')
+    .first<{ unhealthy: number }>();
+  return !!row?.unhealthy;
+}
+
+export async function setWorkerHealthState(db: D1Database, unhealthy: boolean): Promise<void> {
+  await db
+    .prepare('UPDATE worker_health SET unhealthy = ?, updated_at = ? WHERE id = 1')
+    .bind(unhealthy ? 1 : 0, Math.floor(Date.now() / 1000))
+    .run();
+}
+
 // Backed by uptime_bucket_rollups (see getUptimeBucketsAndSummary above)
 // instead of a raw COUNT/SUM scan over checks — the admin dashboard's
 // monitor list calls this once per monitor on every load, uncached (it's an

@@ -84,3 +84,14 @@ CREATE TABLE IF NOT EXISTS notices (
 );
 
 CREATE INDEX IF NOT EXISTS idx_notices_page ON notices(status_page_id, created_at DESC);
+
+-- Singleton row tracking whether the self-monitoring health check currently
+-- considers the Worker unhealthy (checks not landing on schedule). Read and
+-- written by the separate */15 cron tick in health.ts, kept apart from the
+-- monitors/checks tables so it never touches the 1-minute check loop.
+CREATE TABLE IF NOT EXISTS worker_health (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  unhealthy INTEGER NOT NULL DEFAULT 0,
+  updated_at INTEGER
+);
+INSERT OR IGNORE INTO worker_health (id, unhealthy) VALUES (1, 0);
