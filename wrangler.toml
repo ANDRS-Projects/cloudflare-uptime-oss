@@ -20,8 +20,13 @@ binding = "DB"
 database_name = "uptime-monitor"
 database_id = "YOUR_D1_DATABASE_ID"
 
-# Runs the check loop every minute
+# "* * * * *" runs the check loop every minute. "*/15 * * * *" runs the
+# self-monitoring health check (src/health.ts) — a separate, independent
+# invocation so it can never add CPU cost to a check-loop tick.
 [triggers]
-crons = ["* * * * *"]
+crons = ["* * * * *", "*/15 * * * *"]
 
 # Set your API key as a secret:  wrangler secret put API_KEY
+# Optional: Slack/Discord webhook for self-monitoring alerts (fires when
+# monitor checks stop landing on schedule — see src/health.ts):
+#   wrangler secret put HEALTH_ALERT_WEBHOOK

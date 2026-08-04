@@ -9,6 +9,7 @@ import { uploadLogo, deleteLogo } from './api/upload';
 import { getPublicStatusPage, getPublicIncidentHistory } from './api/public';
 import { getStatusPageRSS, buildStatusPageRSS } from './api/rss';
 import { runCronJob } from './cron';
+import { runHealthCheck } from './health';
 import { renderAdmin } from './html/admin';
 import { renderStatusPage } from './html/status';
 import { renderHistoryPage } from './html/history';
@@ -94,7 +95,14 @@ app.get('/', (c) => c.html(renderAdmin(!!c.env.ASSETS)));
 
 export default {
   fetch: app.fetch,
-  async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
-    ctx.waitUntil(runCronJob(env));
+  async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
+    // Two independent cron triggers fire into this same handler (see
+    // wrangler.toml) — each is its own Worker invocation with its own CPU
+    // budget, so the health check can never add cost to a check-loop tick.
+    if (event.cron === '*/15 * * * *') {
+      ctx.waitUntil(runHealthCheck(env));
+    } else {
+      ctx.waitUntil(runCronJob(env));
+    }
   },
 };

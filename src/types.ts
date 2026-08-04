@@ -2,6 +2,7 @@ export interface Env {
   DB: D1Database;
   API_KEY: string;
   ASSETS?: R2Bucket;
+  HEALTH_ALERT_WEBHOOK?: string;
 }
 
 export interface Monitor {

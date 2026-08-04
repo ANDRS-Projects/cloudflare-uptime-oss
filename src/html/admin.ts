@@ -42,6 +42,8 @@ export function renderAdmin(hasAssets: boolean): string {
     .badge-down{background:#fee2e2;color:#dc2626}
     .badge-unknown{background:var(--border-faint);color:var(--text-muted)}
     .actions{display:flex;gap:.4rem}
+    .health-banner{display:none;background:#fef3c7;color:#92400e;border:1px solid #fde68a;border-radius:8px;padding:.75rem 1rem;margin-bottom:1rem;font-size:.85rem;line-height:1.5}
+    .health-banner b{font-weight:600}
     .modal-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:100;align-items:center;justify-content:center}
     .modal-backdrop.open{display:flex}
     .modal{background:var(--surface);border-radius:10px;padding:1.5rem;width:480px;max-width:95vw;box-shadow:0 20px 60px rgba(0,0,0,.15)}
@@ -126,6 +128,7 @@ export function renderAdmin(hasAssets: boolean): string {
         <h2>Monitors</h2>
         <button class="btn btn-primary" onclick="openMonitorModal()">+ Add Monitor</button>
       </div>
+      <div id="health-banner" class="health-banner"></div>
       <div id="monitors-container"><div class="empty">Loading...</div></div>
     </div>
 
@@ -362,6 +365,27 @@ export function renderAdmin(hasAssets: boolean): string {
   async function loadMonitors() {
     monitors = (await api('/api/monitors')).sort((a, b) => a.name.localeCompare(b.name));
     renderMonitors();
+    renderHealthBanner();
+  }
+
+  // Same staleness definition as the account-level heartbeat cron
+  // (src/health.ts) — computed here from data /api/monitors already returns,
+  // so the dashboard shows it immediately on load rather than waiting for
+  // the next 15-minute health-check tick.
+  function renderHealthBanner() {
+    const banner = document.getElementById('health-banner');
+    const STALE_MULTIPLIER = 3, MIN_STALE_SECONDS = 300;
+    const now = Math.floor(Date.now() / 1000);
+    const stale = monitors.filter(m => {
+      if (m.active !== 1 || !m.latest_check) return false;
+      const threshold = Math.max(m.interval_minutes * 60 * STALE_MULTIPLIER, MIN_STALE_SECONDS);
+      return now - m.latest_check.checked_at > threshold;
+    });
+    if (!stale.length) { banner.style.display = 'none'; return; }
+    banner.style.display = 'block';
+    banner.innerHTML = '⚠️ <b>' + stale.length + ' monitor' + (stale.length > 1 ? 's' : '') +
+      ' have not reported in longer than expected</b> — the check loop may not be completing. Affected: ' +
+      stale.map(m => esc(m.name)).join(', ');
   }
 
   function renderMonitors() {
