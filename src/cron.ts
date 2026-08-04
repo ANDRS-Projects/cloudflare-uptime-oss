@@ -1,4 +1,4 @@
-import type { Env, Monitor } from './types';
+import type { CheckResult, Env, Incident, Monitor } from './types';
 import * as db from './db';
 import { checkWithRetry } from './checks';
 import { sendAlert } from './alerts';
@@ -31,7 +31,40 @@ export async function runCronJob(env: Env): Promise<void> {
       (minuteOfDay + checkOffset(m.id, m.interval_minutes)) % m.interval_minutes === 0
   );
 
-  await Promise.allSettled(due.map((m) => checkMonitor(env, m, now)));
+  const settled = await Promise.allSettled(
+    due.map(async (m) => ({ monitor: m, result: await checkWithRetry(m) }))
+  );
+  const checked = settled
+    .filter(
+      (r): r is PromiseFulfilledResult<{ monitor: Monitor; result: CheckResult }> =>
+        r.status === 'fulfilled'
+    )
+    .map((r) => r.value);
+
+  // Every due monitor needs a check row + rollup upsert, and needs its
+  // current open-incident state, every single tick — those two reads/writes
+  // used to be one D1 round-trip *per monitor*, which is fixed dispatch
+  // overhead a Worker pays regardless of how fast D1 answers. Batching them
+  // into one round-trip each, covering every monitor in the tick, is what
+  // keeps a tick's CPU time from scaling with monitor count. Incident
+  // create/resolve stays per-monitor since it only fires on state changes.
+  if (checked.length) {
+    await db.recordChecks(
+      env.DB,
+      checked.map(({ monitor, result }) => ({ monitorId: monitor.id, checkedAt: now, result }))
+    );
+  }
+
+  const openIncidents = await db.getOpenIncidents(
+    env.DB,
+    checked.map(({ monitor }) => monitor.id)
+  );
+
+  await Promise.allSettled(
+    checked.map(({ monitor, result }) =>
+      handleIncidentState(env, monitor, result, openIncidents.get(monitor.id) ?? null)
+    )
+  );
 
   // Run cleanup once a day (at midnight UTC)
   if (minuteOfDay % 1440 === 0) {
@@ -43,19 +76,14 @@ export async function runCronJob(env: Env): Promise<void> {
   }
 }
 
-async function checkMonitor(env: Env, monitor: Monitor, now: number): Promise<void> {
-  const result = await checkWithRetry(monitor);
-  await db.recordCheck(env.DB, monitor.id, now, result);
-
-  const openIncident = await db.getOpenIncident(env.DB, monitor.id);
-
+async function handleIncidentState(
+  env: Env,
+  monitor: Monitor,
+  result: CheckResult,
+  openIncident: Incident | null
+): Promise<void> {
   if (!result.ok && !result.degraded && !openIncident) {
-    await db.createIncident(
-      env.DB,
-      monitor.id,
-      result.status_code || null,
-      result.error
-    );
+    await db.createIncident(env.DB, monitor.id, result.status_code || null, result.error);
     await sendAlert(monitor, false);
   } else if (result.ok && !result.degraded && openIncident) {
     await db.resolveIncident(env.DB, openIncident.id);
