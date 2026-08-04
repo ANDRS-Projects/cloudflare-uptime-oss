@@ -3,6 +3,7 @@
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Cloudflare Workers](https://img.shields.io/badge/Cloudflare-Workers-F38020?logo=cloudflare&logoColor=white)](https://workers.cloudflare.com/)
 [![Deploy](https://github.com/ANDRS-Projects/cloudflare-uptime/actions/workflows/deploy.yml/badge.svg)](https://github.com/ANDRS-Projects/cloudflare-uptime/actions/workflows/deploy.yml)
+[![AGENTS.md](https://img.shields.io/badge/AGENTS.md-✓-6f42c1)](AGENTS.md)
 
 Self-hosted uptime monitoring on Cloudflare Workers with public status pages — no servers, no monthly fees.
 
