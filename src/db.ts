@@ -197,24 +197,42 @@ export async function recordCheck(
   checkedAt: number,
   result: CheckResult
 ): Promise<void> {
-  const bucketStart = Math.floor(checkedAt / UPTIME_BUCKET_SECONDS) * UPTIME_BUCKET_SECONDS;
-  await db.batch([
-    db
-      .prepare(
-        'INSERT INTO checks (monitor_id, status_code, ok, degraded, latency_ms, error, json_value) VALUES (?, ?, ?, ?, ?, ?, ?)'
-      )
-      .bind(monitorId, result.status_code, result.ok ? 1 : 0, result.degraded ? 1 : 0, result.latency_ms, result.error, result.json_value ?? null),
-    db
-      .prepare(
-        `INSERT INTO uptime_bucket_rollups (monitor_id, bucket_start, cnt, up_cnt, degraded_cnt)
-         VALUES (?, ?, 1, ?, ?)
-         ON CONFLICT(monitor_id, bucket_start) DO UPDATE SET
-           cnt = cnt + 1,
-           up_cnt = up_cnt + excluded.up_cnt,
-           degraded_cnt = degraded_cnt + excluded.degraded_cnt`
-      )
-      .bind(monitorId, bucketStart, result.ok ? 1 : 0, result.degraded ? 1 : 0),
-  ]);
+  await recordChecks(db, [{ monitorId, checkedAt, result }]);
+}
+
+// Batched form of recordCheck for cron: combines the check-insert and
+// rollup-upsert for every due monitor into a single db.batch() round-trip
+// instead of one round-trip pair per monitor. Each D1 call has fixed
+// Worker-side dispatch overhead regardless of how fast D1 itself answers, so
+// on a tick with N due monitors this turns 2N dispatches into 1 — the
+// dominant remaining lever for staying under the Workers Free plan's 10ms
+// CPU-time budget once per-monitor waste was already eliminated.
+export async function recordChecks(
+  db: D1Database,
+  entries: Array<{ monitorId: string; checkedAt: number; result: CheckResult }>
+): Promise<void> {
+  if (entries.length === 0) return;
+  const statements = entries.flatMap(({ monitorId, checkedAt, result }) => {
+    const bucketStart = Math.floor(checkedAt / UPTIME_BUCKET_SECONDS) * UPTIME_BUCKET_SECONDS;
+    return [
+      db
+        .prepare(
+          'INSERT INTO checks (monitor_id, status_code, ok, degraded, latency_ms, error, json_value) VALUES (?, ?, ?, ?, ?, ?, ?)'
+        )
+        .bind(monitorId, result.status_code, result.ok ? 1 : 0, result.degraded ? 1 : 0, result.latency_ms, result.error, result.json_value ?? null),
+      db
+        .prepare(
+          `INSERT INTO uptime_bucket_rollups (monitor_id, bucket_start, cnt, up_cnt, degraded_cnt)
+           VALUES (?, ?, 1, ?, ?)
+           ON CONFLICT(monitor_id, bucket_start) DO UPDATE SET
+             cnt = cnt + 1,
+             up_cnt = up_cnt + excluded.up_cnt,
+             degraded_cnt = degraded_cnt + excluded.degraded_cnt`
+        )
+        .bind(monitorId, bucketStart, result.ok ? 1 : 0, result.degraded ? 1 : 0),
+    ];
+  });
+  await db.batch(statements);
 }
 
 export async function getOpenIncident(
@@ -227,6 +245,23 @@ export async function getOpenIncident(
     )
     .bind(monitorId)
     .first<Incident>();
+}
+
+// Batched form of getOpenIncident for cron, which needs the open-incident
+// state of every due monitor in the same tick. The app only ever creates a
+// new incident when getOpenIncident found none, so at most one open row per
+// monitor_id can exist — no need to dedupe/rank within the IN() result.
+export async function getOpenIncidents(
+  db: D1Database,
+  monitorIds: string[]
+): Promise<Map<string, Incident>> {
+  if (monitorIds.length === 0) return new Map();
+  const placeholders = monitorIds.map(() => '?').join(',');
+  const r = await db
+    .prepare(`SELECT * FROM incidents WHERE monitor_id IN (${placeholders}) AND resolved_at IS NULL`)
+    .bind(...monitorIds)
+    .all<Incident>();
+  return new Map(r.results.map((i) => [i.monitor_id, i]));
 }
 
 export async function getIncidents(
