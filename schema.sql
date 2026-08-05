@@ -10,7 +10,8 @@ CREATE TABLE IF NOT EXISTS monitors (
   json_path TEXT,
   json_status_map TEXT,
   created_at INTEGER NOT NULL DEFAULT (unixepoch()),
-  active INTEGER NOT NULL DEFAULT 1
+  active INTEGER NOT NULL DEFAULT 1,
+  last_checked_at INTEGER
 );
 
 CREATE TABLE IF NOT EXISTS checks (

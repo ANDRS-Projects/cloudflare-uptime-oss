@@ -232,6 +232,23 @@ export async function recordChecks(
         .bind(monitorId, bucketStart, result.ok ? 1 : 0, result.degraded ? 1 : 0),
     ];
   });
+
+  // Single statement updating every due monitor's last_checked_at in one
+  // shot (a CASE expression, not one UPDATE per monitor) — keeps this at a
+  // fixed +1 dispatch added to the batch regardless of how many monitors are
+  // due, same reasoning as the rest of this batch. This is what
+  // getMonitorStaleness() reads from directly, so the self-monitoring health
+  // check never has to touch the checks table at all — see the comment on
+  // getMonitorStaleness for why that matters.
+  const caseWhens = entries.map(() => 'WHEN ? THEN ?').join(' ');
+  const idPlaceholders = entries.map(() => '?').join(',');
+  const ids = entries.map((e) => e.monitorId);
+  statements.push(
+    db
+      .prepare(`UPDATE monitors SET last_checked_at = CASE id ${caseWhens} END WHERE id IN (${idPlaceholders})`)
+      .bind(...entries.flatMap((e) => [e.monitorId, e.checkedAt]), ...ids)
+  );
+
   await db.batch(statements);
 }
 
@@ -512,21 +529,27 @@ export async function deleteNotice(db: D1Database, id: string): Promise<void> {
 }
 
 // One row per active monitor with its most recent check timestamp (or null
-// if it's never been checked yet), in a single round-trip regardless of
-// monitor count. Backing query for the self-monitoring staleness check —
-// idx_checks_monitor_checked(monitor_id, checked_at DESC) lets SQLite resolve
-// MAX(checked_at) per group without a full table scan.
+// if it's never been checked yet). Reads monitors.last_checked_at directly —
+// kept current by recordChecks() on every cron tick — rather than computing
+// MAX(checked_at) from the checks table.
+//
+// A LEFT JOIN + GROUP BY + MAX() version of this query used to run here.
+// The assumption was that idx_checks_monitor_checked(monitor_id, checked_at
+// DESC) would let SQLite resolve the MAX per group as an index seek. That
+// assumption was never verified against an actual query plan and was wrong:
+// in production this read ~1.49M rows per call (98.58% of all D1 runtime,
+// confirmed via the D1 query-breakdown dashboard) — a JOIN+GROUP BY doesn't
+// reliably trigger SQLite's per-group MIN/MAX index optimization the way a
+// correlated subquery does, so it was doing a full scan + hash aggregation
+// of the entire checks table every 15 minutes. Don't reintroduce a query
+// against checks here — if this data is ever needed again from raw checks,
+// verify the actual query plan (EXPLAIN QUERY PLAN) before trusting an
+// index assumption, not after.
 export async function getMonitorStaleness(
   db: D1Database
 ): Promise<Array<{ id: string; name: string; interval_minutes: number; last_checked_at: number | null }>> {
   const r = await db
-    .prepare(
-      `SELECT m.id, m.name, m.interval_minutes, MAX(c.checked_at) AS last_checked_at
-       FROM monitors m
-       LEFT JOIN checks c ON c.monitor_id = m.id
-       WHERE m.active = 1
-       GROUP BY m.id`
-    )
+    .prepare('SELECT id, name, interval_minutes, last_checked_at FROM monitors WHERE active = 1')
     .all<{ id: string; name: string; interval_minutes: number; last_checked_at: number | null }>();
   return r.results;
 }
