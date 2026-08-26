@@ -32,14 +32,33 @@ export async function runCronJob(env: Env): Promise<void> {
   );
 
   const settled = await Promise.allSettled(
-    due.map(async (m) => ({ monitor: m, result: await checkWithRetry(m) }))
+    due.map(async (m) => {
+      if (m.monitor_type === 'push') {
+        const heartbeatFresh = m.last_heartbeat_at != null && now - m.last_heartbeat_at < m.interval_minutes * 60;
+        if (heartbeatFresh) return null;
+        return {
+          monitor: m,
+          result: { ok: false, degraded: false, status_code: 0, latency_ms: null, error: 'Heartbeat overdue', json_value: null },
+        };
+      }
+      if (m.monitor_type === 'push_down') {
+        const pushActive = m.last_heartbeat_at != null && now - m.last_heartbeat_at < m.interval_minutes * 60;
+        return {
+          monitor: m,
+          result: pushActive
+            ? { ok: false, degraded: false, status_code: 0, latency_ms: null, error: 'Push event active', json_value: null }
+            : { ok: true, degraded: false, status_code: 200, latency_ms: null, error: null, json_value: null },
+        };
+      }
+      return { monitor: m, result: await checkWithRetry(m) };
+    })
   );
   const checked = settled
     .filter(
-      (r): r is PromiseFulfilledResult<{ monitor: Monitor; result: CheckResult }> =>
-        r.status === 'fulfilled'
+      (r): r is PromiseFulfilledResult<{ monitor: Monitor; result: CheckResult } | null> =>
+        r.status === 'fulfilled' && r.value !== null
     )
-    .map((r) => r.value);
+    .map((r) => r.value as { monitor: Monitor; result: CheckResult });
 
   // Every due monitor needs a check row + rollup upsert, and needs its
   // current open-incident state, every single tick — those two reads/writes
@@ -76,7 +95,7 @@ export async function runCronJob(env: Env): Promise<void> {
   }
 }
 
-async function handleIncidentState(
+export async function handleIncidentState(
   env: Env,
   monitor: Monitor,
   result: CheckResult,

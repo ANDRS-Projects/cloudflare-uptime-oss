@@ -8,6 +8,7 @@ export interface Env {
 export interface Monitor {
   id: string;
   name: string;
+  monitor_type: 'http' | 'tcp' | 'push' | 'push_down';
   url: string;
   interval_minutes: number;
   timeout_ms: number;
@@ -18,6 +19,7 @@ export interface Monitor {
   json_status_map: string | null;
   created_at: number;
   active: number;
+  last_heartbeat_at: number | null;
 }
 
 export interface Check {
