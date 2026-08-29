@@ -70,10 +70,14 @@ export async function updateMonitor(c: Context<{ Bindings: Env }>) {
   const id = c.req.param('id');
   if (!id) return c.json({ error: 'missing id' }, 400);
   const body = await c.req.json<Record<string, unknown>>();
-  const allowed = ['name', 'url', 'monitor_type', 'interval_minutes', 'timeout_ms', 'alert_webhook', 'active', 'expected_status_code', 'retry_count', 'json_path', 'json_status_map', 'keyword', 'manual_status'];
+  const allowed = ['name', 'url', 'monitor_type', 'interval_minutes', 'timeout_ms', 'alert_webhook', 'active', 'expected_status_code', 'retry_count', 'json_path', 'json_status_map', 'keyword', 'manual_status', 'grace_period_minutes'];
   const updates = Object.fromEntries(
     Object.entries(body).filter(([k]) => allowed.includes(k))
   );
+  // Normalize empty strings to null so the type-specific validations below
+  // don't reject benign absent fields sent as "" by the admin form.
+  if (updates.keyword === '') updates.keyword = null;
+  if (updates.manual_status === '') updates.manual_status = null;
   if (updates.monitor_type != null && !['http', 'tcp', 'keyword', 'push', 'push_down', 'manual'].includes(updates.monitor_type as string)) {
     return c.json({ error: 'monitor_type must be http, tcp, keyword, push, or push_down, or manual' }, 400);
   }
