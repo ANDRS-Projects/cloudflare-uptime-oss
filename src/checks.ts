@@ -93,7 +93,7 @@ export async function runCheck(monitor: Monitor): Promise<CheckResult> {
       return { ok: false, degraded: false, status_code: response.status, latency_ms: Date.now() - start, error: null, json_value: null };
     }
 
-    if (monitor.json_path && monitor.json_status_map) {
+if (monitor.json_path && monitor.json_status_map) {
       let body: unknown;
       try {
         body = await response.json();
@@ -118,8 +118,13 @@ export async function runCheck(monitor: Monitor): Promise<CheckResult> {
       };
     }
 
-    // Same as above — a plain up/down check (no json_path configured) never
-    // reads the body, so it must be canceled explicitly here too.
+    if (monitor.monitor_type === 'keyword') {
+      const body = await response.text();
+      const keyword = monitor.keyword ?? '';
+      const matched = keyword !== '' && body.includes(keyword);
+      return { ok: matched, degraded: false, status_code: response.status, latency_ms: Date.now() - start, error: matched ? null : 'Keyword not found', json_value: matched ? keyword : null };
+    }
+
     response.body?.cancel();
     return { ok: true, degraded: false, status_code: response.status, latency_ms: Date.now() - start, error: null, json_value: null };
   } catch (err) {
