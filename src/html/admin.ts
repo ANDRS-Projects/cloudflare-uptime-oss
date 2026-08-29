@@ -175,16 +175,6 @@ export function renderAdmin(hasAssets: boolean): string {
       <div class="fg"><label>Timeout (ms)</label><input id="m-timeout" type="number" value="5000" min="1000" max="30000"></div>
     </div>
     <div class="fg"><label>Expected Status Code (optional, e.g. 401)</label><input id="m-expected-status" type="number" placeholder="Leave blank for any 2xx–3xx" min="100" max="599"></div>
-    <div class="fg">
-      <label>Attempts before marking down</label>
-      <select id="m-retry-count">
-        <option value="1">1 — no retries</option>
-        <option value="2" selected>2 (default)</option>
-        <option value="3">3</option>
-        <option value="4">4</option>
-        <option value="5">5</option>
-      </select>
-    </div>
     <div class="fg"><label>Alert Webhook (Slack / Discord / custom)</label><input id="m-webhook" type="url" placeholder="https://hooks.slack.com/..."></div>
     <div class="fg">
       <label>JSON Monitoring (optional)</label>
@@ -319,6 +309,9 @@ export function renderAdmin(hasAssets: boolean): string {
     document.getElementById('m-expected-status').value = m?.expected_status_code || '';
     document.getElementById('m-retry-count').value = m?.retry_count ?? 2;
     document.getElementById('m-webhook').value = m?.alert_webhook || '';
+    if (document.getElementById('m-grace-period')) {
+      document.getElementById('m-grace-period').value = m?.grace_period_minutes ?? 1;
+    }
     const hasJson = !!(m?.json_path);
     const isStatuspage = m?.json_path === STATUSPAGE_PATH && m?.json_status_map === STATUSPAGE_MAP;
     const preset = !hasJson ? '' : isStatuspage ? 'statuspage' : 'custom';

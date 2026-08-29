@@ -34,31 +34,45 @@ export async function runCronJob(env: Env): Promise<void> {
   const settled = await Promise.allSettled(
     due.map(async (m) => {
       if (m.monitor_type === 'push') {
-        const heartbeatBaseline = m.last_heartbeat_at ?? m.created_at;
-        const heartbeatAge = now - heartbeatBaseline;
-        const intervalMs = m.interval_minutes * 60 * 1000;
-        const gracePeriodMs = m.grace_period_minutes * 60 * 1000;
-        const withinGrace = heartbeatAge < intervalMs + gracePeriodMs;
-        const pastGrace = heartbeatAge >= intervalMs + gracePeriodMs;
-        if (heartbeatAge < intervalMs) {
+        // If no heartbeat has ever been received, treat the monitor as
+        // overdue immediately — using created_at as the baseline would make
+        // the heartbeat age ≈ 0 on every tick, so the cron would always
+        // return null and the monitor would never be marked down.
+        if (m.last_heartbeat_at == null) {
+          const ageSinceCreation = now - m.created_at;
+          const gracePeriodSec = m.grace_period_minutes * 60;
+          if (ageSinceCreation < gracePeriodSec) {
+            // Within grace period from creation — degraded
+            return {
+              monitor: m,
+              result: { ok: false, degraded: true, status_code: 0, latency_ms: null, error: 'No heartbeat received (grace period)', json_value: null },
+            };
+          }
+          // Past grace period with no heartbeat — down
+          return {
+            monitor: m,
+            result: { ok: false, degraded: false, status_code: 0, latency_ms: null, error: 'No heartbeat received', json_value: null },
+          };
+        }
+        const heartbeatAge = now - m.last_heartbeat_at;
+        const intervalSec = m.interval_minutes * 60;
+        const gracePeriodSec = m.grace_period_minutes * 60;
+        if (heartbeatAge < intervalSec) {
           // Within normal interval, heartbeat is fresh
           return null;
         }
-        if (withinGrace && !pastGrace) {
+        if (heartbeatAge < intervalSec + gracePeriodSec) {
           // Past interval but within grace period → degraded
           return {
             monitor: m,
             result: { ok: false, degraded: true, status_code: 0, latency_ms: null, error: 'Heartbeat overdue (grace period)', json_value: null },
           };
         }
-        if (pastGrace) {
-          // Past grace period → down
-          return {
-            monitor: m,
-            result: { ok: false, degraded: false, status_code: 0, latency_ms: null, error: 'Heartbeat overdue', json_value: null },
-          };
-        }
-        return null;
+        // Past grace period → down
+        return {
+          monitor: m,
+          result: { ok: false, degraded: false, status_code: 0, latency_ms: null, error: 'Heartbeat overdue', json_value: null },
+        };
       }
       if (m.monitor_type === 'push_down') {
         const pushActive = m.last_heartbeat_at != null && now - m.last_heartbeat_at < m.interval_minutes * 60;
