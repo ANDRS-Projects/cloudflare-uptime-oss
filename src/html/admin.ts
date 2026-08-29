@@ -384,7 +384,7 @@ export function renderAdmin(hasAssets: boolean): string {
       json_path: document.getElementById('m-json-path').value.trim() || null,
       json_status_map: (() => { try { const v = document.getElementById('m-json-map').value.trim(); return v ? JSON.parse(v) : null; } catch { return '__invalid__'; } })(),
       keyword: document.getElementById('m-keyword') ? document.getElementById('m-keyword').value.trim() : null,
-      manual_status: document.getElementById('m-manual-status') ? document.getElementById('m-manual-status').value as 'up' | 'degraded' | 'down' || null : null,
+      manual_status: document.getElementById('m-manual-status') ? (() => { const v = document.getElementById('m-manual-status').value; return v === 'up' || v === 'degraded' || v === 'down' ? v : null; })() : null,
       grace_period_minutes: document.getElementById('m-grace-period') ? parseInt(document.getElementById('m-grace-period').value) : 1,
     };
     if (!data.name || !data.url) { toast('Name and URL are required', 'error'); return; }
