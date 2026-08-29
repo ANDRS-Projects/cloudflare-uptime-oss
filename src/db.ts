@@ -11,13 +11,13 @@ export async function getMonitor(db: D1Database, id: string): Promise<Monitor | 
 
 export async function createMonitor(
   db: D1Database,
-  m: Omit<Monitor, 'created_at' | 'active' | 'last_heartbeat_at'>
+m: Omit<Monitor, 'created_at' | 'active' | 'last_heartbeat_at'>
 ): Promise<void> {
   await db
     .prepare(
-      'INSERT INTO monitors (id, name, monitor_type, url, interval_minutes, timeout_ms, alert_webhook, expected_status_code, retry_count, json_path, json_status_map) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+      'INSERT INTO monitors (id, name, monitor_type, url, interval_minutes, timeout_ms, alert_webhook, expected_status_code, retry_count, json_path, json_status_map, keyword, manual_status, grace_period_minutes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
     )
-    .bind(m.id, m.name, m.monitor_type, m.url, m.interval_minutes, m.timeout_ms, m.alert_webhook, m.expected_status_code ?? null, m.retry_count, m.json_path ?? null, m.json_status_map ?? null)
+    .bind(m.id, m.name, m.monitor_type, m.url, m.interval_minutes, m.timeout_ms, m.alert_webhook, m.expected_status_code ?? null, m.retry_count, m.json_path ?? null, m.json_status_map ?? null, m.keyword ?? null, m.manual_status ?? null, m.grace_period_minutes)
     .run();
 }
 

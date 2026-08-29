@@ -34,12 +34,31 @@ export async function runCronJob(env: Env): Promise<void> {
   const settled = await Promise.allSettled(
     due.map(async (m) => {
       if (m.monitor_type === 'push') {
-        const heartbeatFresh = m.last_heartbeat_at != null && now - m.last_heartbeat_at < m.interval_minutes * 60;
-        if (heartbeatFresh) return null;
-        return {
-          monitor: m,
-          result: { ok: false, degraded: false, status_code: 0, latency_ms: null, error: 'Heartbeat overdue', json_value: null },
-        };
+        const heartbeatBaseline = m.last_heartbeat_at ?? m.created_at;
+        const heartbeatAge = now - heartbeatBaseline;
+        const intervalMs = m.interval_minutes * 60 * 1000;
+        const gracePeriodMs = m.grace_period_minutes * 60 * 1000;
+        const withinGrace = heartbeatAge < intervalMs + gracePeriodMs;
+        const pastGrace = heartbeatAge >= intervalMs + gracePeriodMs;
+        if (heartbeatAge < intervalMs) {
+          // Within normal interval, heartbeat is fresh
+          return null;
+        }
+        if (withinGrace && !pastGrace) {
+          // Past interval but within grace period → degraded
+          return {
+            monitor: m,
+            result: { ok: false, degraded: true, status_code: 0, latency_ms: null, error: 'Heartbeat overdue (grace period)', json_value: null },
+          };
+        }
+        if (pastGrace) {
+          // Past grace period → down
+          return {
+            monitor: m,
+            result: { ok: false, degraded: false, status_code: 0, latency_ms: null, error: 'Heartbeat overdue', json_value: null },
+          };
+        }
+        return null;
       }
       if (m.monitor_type === 'push_down') {
         const pushActive = m.last_heartbeat_at != null && now - m.last_heartbeat_at < m.interval_minutes * 60;
@@ -48,6 +67,20 @@ export async function runCronJob(env: Env): Promise<void> {
           result: pushActive
             ? { ok: false, degraded: false, status_code: 0, latency_ms: null, error: 'Push event active', json_value: null }
             : { ok: true, degraded: false, status_code: 200, latency_ms: null, error: null, json_value: null },
+        };
+      }
+      if (m.monitor_type === 'manual') {
+        const status = m.manual_status ?? 'up';
+        return {
+          monitor: m,
+          result: {
+            ok: status === 'up' || status === 'degraded',
+            degraded: status === 'degraded',
+            status_code: status === 'up' || status === 'degraded' ? 200 : 0,
+            latency_ms: null,
+            error: status === 'down' ? 'Manual status: down' : null,
+            json_value: status,
+          },
         };
       }
       return { monitor: m, result: await checkWithRetry(m) };

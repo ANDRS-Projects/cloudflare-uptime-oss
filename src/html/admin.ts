@@ -158,8 +158,10 @@ export function renderAdmin(hasAssets: boolean): string {
   <div class="modal">
     <h3 id="mm-title">Add Monitor</h3>
     <div class="fg"><label>Name</label><input id="m-name" type="text" placeholder="My Website"></div>
-    <div class="fg"><label>Monitor Type</label><select id="m-type" onchange="updateMonitorTypeFields()"><option value="http">HTTP / HTTPS</option><option value="tcp">TCP Port</option><option value="push">Push / Heartbeat</option><option value="push_down">Upside-down Push</option></select></div>
-    <div class="fg" id="m-url-field"><label>URL</label><input id="m-url" type="text" placeholder="https://... or tcp://..."></div>
+    <div class="fg"><label>Monitor Type</label><select id="m-type" onchange="updateMonitorTypeFields()"><option value="http">HTTP / HTTPS</option><option value="tcp">TCP Port</option><option value="keyword">Keyword Match</option><option value="push">Push / Heartbeat</option><option value="push_down">Upside-down Push</option><option value="manual">Manual</option></select></div>
+    <div class="fg" id="m-url-field"><label>URL</label><input id="m-url" type="text" placeholder="https://... or tcp://... or keyword search term"></div>
+    <div id="m-grace-field" style="display:none" class="fg"><label>Grace Period (push only)</label><select id="m-grace-period"><option value="1">1 minute</option><option value="5">5 minutes</option><option value="10">10 minutes</option><option value="15">15 minutes</option><option value="30">30 minutes</option></select></div>
+    <div class="fg"><label>Retry Count</label><select id="m-retry-count"><option value="1">1 — no retries</option><option value="2" selected>2 (default)</option><option value="3">3</option><option value="4">4</option><option value="5">5</option></select></div>
     <div class="frow">
       <div class="fg">
         <label>Check Interval</label>
@@ -331,10 +333,12 @@ export function renderAdmin(hasAssets: boolean): string {
   function updateMonitorTypeFields() {
     const type = document.getElementById('m-type').value;
     const isPush = type === 'push' || type === 'push_down';
-    document.getElementById('m-url-field').style.display = isPush ? 'none' : '';
+    const isKeyword = type === 'keyword';
+    const isManual = type === 'manual';
+    document.getElementById('m-url-field').style.display = isPush || isKeyword || isManual ? 'none' : '';
     const url = document.getElementById('m-url');
-    url.disabled = isPush;
-    url.placeholder = isPush ? 'Generated after saving' : type === 'tcp' ? 'tcp://host:port' : 'https://...';
+    url.disabled = isPush || isKeyword || isManual;
+    url.placeholder = isPush ? 'Generated after saving' : isKeyword ? 'Keyword search term' : type === 'tcp' ? 'tcp://host:port' : 'https://...';
     if (isPush) url.value = 'push://heartbeat';
     else if (url.value === 'push://heartbeat') url.value = '';
     ['m-timeout','m-expected-status','m-retry-count','m-json-preset'].forEach(id => {
@@ -342,6 +346,24 @@ export function renderAdmin(hasAssets: boolean): string {
       field.closest('.fg').style.display = isPush ? 'none' : '';
     });
     document.getElementById('m-json-fields').style.display = isPush ? 'none' : document.getElementById('m-json-fields').style.display;
+    
+    // Show/hide keyword field for keyword monitors
+    const kwField = document.getElementById('m-keyword-field');
+    if (kwField) {
+      kwField.style.display = isKeyword ? '' : 'none';
+    }
+    
+    // Show/hide manual status field for manual monitors
+    const manualField = document.getElementById('m-manual-status-field');
+    if (manualField) {
+      manualField.style.display = isManual ? '' : 'none';
+    }
+    
+    // Show/hide grace period field for push monitors
+    const graceField = document.getElementById('m-grace-field');
+    if (graceField) {
+      graceField.style.display = isPush ? '' : 'none';
+    }
   }
 
   function closeMonitorModal() {
@@ -361,6 +383,9 @@ export function renderAdmin(hasAssets: boolean): string {
       alert_webhook: document.getElementById('m-webhook').value.trim() || null,
       json_path: document.getElementById('m-json-path').value.trim() || null,
       json_status_map: (() => { try { const v = document.getElementById('m-json-map').value.trim(); return v ? JSON.parse(v) : null; } catch { return '__invalid__'; } })(),
+      keyword: document.getElementById('m-keyword') ? document.getElementById('m-keyword').value.trim() : null,
+      manual_status: document.getElementById('m-manual-status') ? document.getElementById('m-manual-status').value as 'up' | 'degraded' | 'down' || null : null,
+      grace_period_minutes: document.getElementById('m-grace-period') ? parseInt(document.getElementById('m-grace-period').value) : 1,
     };
     if (!data.name || !data.url) { toast('Name and URL are required', 'error'); return; }
     if (data.json_status_map === '__invalid__') { toast('JSON Status Map is not valid JSON', 'error'); return; }
