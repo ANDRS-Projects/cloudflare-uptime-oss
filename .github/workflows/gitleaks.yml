@@ -24,4 +24,5 @@ jobs:
           curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" | tar -xz -C /usr/local/bin gitleaks
 
       - name: Run Gitleaks
-        run: gitleaks detect --source . --exit-code 1
+        # --redact keeps secret values out of the CI log; --verbose shows rule, file and commit
+        run: gitleaks detect --source . --exit-code 1 --verbose --redact
