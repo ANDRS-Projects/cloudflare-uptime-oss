@@ -5,6 +5,7 @@ import * as db from './db';
 import * as monitorsApi from './api/monitors';
 import * as pagesApi from './api/pages';
 import * as noticesApi from './api/notices';
+import { receivePush } from './api/push';
 import { uploadLogo, deleteLogo } from './api/upload';
 import { getPublicStatusPage, getPublicIncidentHistory } from './api/public';
 import { getStatusPageRSS, buildStatusPageRSS } from './api/rss';
@@ -37,6 +38,7 @@ app.use('*', async (c, next) => {
 });
 
 // ── Auth middleware (API routes only) ────────────────────────────────────────
+app.on(['GET', 'POST', 'PUT'], '/api/push/:id', receivePush);
 app.use('/api/*', cors());
 app.use('/api/*', async (c, next) => {
   const key = c.req.header('X-API-Key');

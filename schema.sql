@@ -1,6 +1,7 @@
 CREATE TABLE IF NOT EXISTS monitors (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
+  monitor_type TEXT NOT NULL DEFAULT 'http',
   url TEXT NOT NULL,
   interval_minutes INTEGER NOT NULL DEFAULT 1,
   timeout_ms INTEGER NOT NULL DEFAULT 10000,
@@ -9,9 +10,13 @@ CREATE TABLE IF NOT EXISTS monitors (
   retry_count INTEGER DEFAULT 2,
   json_path TEXT,
   json_status_map TEXT,
+  keyword TEXT,
+  manual_status TEXT,
+  grace_period_minutes INTEGER NOT NULL DEFAULT 1,
   created_at INTEGER NOT NULL DEFAULT (unixepoch()),
   active INTEGER NOT NULL DEFAULT 1,
-  last_checked_at INTEGER
+  last_checked_at INTEGER,
+  last_heartbeat_at INTEGER
 );
 
 CREATE TABLE IF NOT EXISTS checks (

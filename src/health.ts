@@ -20,7 +20,10 @@ export async function runHealthCheck(env: Env): Promise<void> {
   const now = Math.floor(Date.now() / 1000);
 
   const stale = monitors.filter((m) => {
-    if (m.last_checked_at == null) return false;
+    // A monitor that has never been checked (last_checked_at is null) is
+    // always considered stale — the check loop should have written a row by
+    // now for any active monitor, so null means it hasn't run.
+    if (m.last_checked_at == null) return true;
     const threshold = Math.max(m.interval_minutes * 60 * STALE_MULTIPLIER, MIN_STALE_SECONDS);
     return now - m.last_checked_at > threshold;
   });

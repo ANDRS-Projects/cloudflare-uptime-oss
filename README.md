@@ -27,7 +27,9 @@ Self-hosted uptime monitoring on Cloudflare Workers with public status pages —
 
 ## Features
 
-- **Multi-monitor support** — track any HTTP endpoint or TCP socket (via `tcp://`) with configurable check intervals and timeouts
+- **Multi-monitor support** — track any HTTP endpoint, TCP socket (via `tcp://`), or push/heartbeat endpoint with configurable check intervals and timeouts
+- **Keyword match monitors** — monitor an HTTP endpoint and check if a specific keyword appears in the response body; stays up while the keyword is found, goes down when the keyword is absent or the request fails
+- **Push / heartbeat monitors** — generate a public URL that accepts GET, POST, or PUT heartbeats; normal push monitors stay up while a heartbeat arrives within their interval, while upside-down push monitors start up and stay down for one interval after each heartbeat
 - **Public status pages** — shareable `/status/:slug` pages with live up/down status per monitor
 - **90-day latency history** — sparkline graph built from the rolling check history; can be hidden per status page from the admin dashboard if you'd rather not publish response-time data
 - **Incident timeline** — timestamped incidents with human-readable failure reasons (HTTP status badge + description, timeout label, or raw error)
@@ -239,6 +241,7 @@ There is no traditional `.env` file — see `.env.example` for a full annotated 
 | Field | Description |
 |-------|-------------|
 | `url` | The HTTP(S) endpoint or TCP socket (e.g., `tcp://example.com:5432`) to monitor |
+| `monitor_type` | `http`, `tcp`, `push`, or `push_down`; push monitors generate their heartbeat URL in the admin dashboard |
 | `interval_minutes` | How often to check (1, 5, 10, 15, 30, 60) |
 | `timeout_ms` | Request timeout in milliseconds (default: 10000) |
 | `expected_status_code` | Expected HTTP response code (optional — leave blank to accept any 2xx–3xx) |
@@ -246,6 +249,14 @@ There is no traditional `.env` file — see `.env.example` for a full annotated 
 | `alert_webhook` | Slack or Discord incoming webhook URL for up/down alerts |
 | `json_path` | Dot-notation path to extract from the JSON response body (e.g. `status.indicator`). Leave blank for plain HTTP monitoring. |
 | `json_status_map` | JSON object mapping extracted values to `up`, `degraded`, or `down` (e.g. `{"none":"up","minor":"degraded","critical":"down"}`). Select the **Statuspage.io** preset in the admin to fill this automatically. |
+| `keyword` | Text keyword to match in the HTTP response body (keyword monitors only). The monitor stays up while the keyword is found in the response. |
+| `manual_status` | Manually set the monitor status: `up`, `degraded`, or `down` (manual monitors only). Useful for cron jobs, backups, or any service without an inbound endpoint. |
+
+For a push monitor, send a request to its generated URL (`/api/push/<monitor-id>`). The endpoint is intentionally unauthenticated so external services can call it directly; the monitor ID acts as the generated token. A successful GET, POST, or PUT records an up check and resolves an open incident. Add `?ping=255` to record a reported 255ms latency, for example `https://squid-uptime.squidservers.workers.dev/api/push/<monitor-id>?ping=255`. If no heartbeat arrives within `interval_minutes`, the next scheduled evaluation records the monitor as down and opens an incident.
+
+### Manual monitors
+
+Manual monitors let you set a static status (`up`, `degraded`, or `down`) for monitors that have no inbound endpoint to poll — e.g. cron jobs, nightly backups, internal services, or any scheduled task. The status is set via the admin dashboard and persists until changed. These monitors do not perform HTTP checks; the last_checked_at timestamp is still updated when the monitor is created/updated, and the status page will show the manually-set status. Note that manual monitors will always report their configured status on the public status page, regardless of any actual service availability.
 
 ### Per-status-page settings (set via admin dashboard)
 
@@ -296,6 +307,8 @@ ALTER TABLE monitors ADD COLUMN expected_status_code INTEGER;
 ALTER TABLE monitors ADD COLUMN retry_count INTEGER NOT NULL DEFAULT 3;
 ALTER TABLE monitors ADD COLUMN json_path TEXT;
 ALTER TABLE monitors ADD COLUMN json_status_map TEXT;
+ALTER TABLE monitors ADD COLUMN monitor_type TEXT NOT NULL DEFAULT 'http';
+ALTER TABLE monitors ADD COLUMN last_heartbeat_at INTEGER;
 ALTER TABLE checks ADD COLUMN degraded INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE checks ADD COLUMN json_value TEXT;
 ALTER TABLE status_pages ADD COLUMN min_incident_duration_minutes INTEGER NOT NULL DEFAULT 0;
