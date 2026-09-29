@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS checks (
 );
 
 CREATE INDEX IF NOT EXISTS idx_checks_monitor_checked ON checks(monitor_id, checked_at DESC);
+CREATE INDEX IF NOT EXISTS idx_checks_checked_at ON checks(checked_at);
 
 -- Incrementally maintained by cron.ts on every check insert: one row per
 -- monitor per fixed 8-hour epoch-aligned window. The public status page and
