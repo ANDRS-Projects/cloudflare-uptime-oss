@@ -54,7 +54,7 @@ export async function sendHealthAlert(
               {
                 title: 'If this keeps recurring',
                 value:
-                  "The Workers Free plan's 10ms CPU limit is a common cause — upgrading to Workers Paid ($5/mo) raises it substantially for cron.",
+                  "Check the Worker's logs for errors or exceeded CPU limits. On the Workers Free plan, the 10ms CPU limit is a common cause.",
                 short: false,
               },
             ],
