@@ -86,7 +86,7 @@ async function buildPublicStatusPage(c: Context<{ Bindings: Env }>): Promise<Res
         id: m.id,
         name: m.name,
         url: m.url,
-        current_status: latest ? (latest.ok ? (latest.degraded ? 'degraded' : 'up') : 'down') : 'unknown',
+        current_status: latest ? (latest.ok ? (latest.degraded ? 'degraded' : 'up') : 'down') : m.monitor_type === 'push_down' ? 'up' : 'unknown',
         uptime_30d: uptime.uptime30,
         uptime_7d: uptime.uptime7,
         latency_ms: latest?.latency_ms ?? null,

@@ -36,7 +36,7 @@ export function renderAdmin(hasAssets: boolean): string {
     .dot-down{background:#ef4444;box-shadow:0 0 0 3px #fee2e2}
     .dot-unknown{background:#94a3b8;box-shadow:0 0 0 3px var(--border-faint)}
     .mname{font-weight:500;font-size:.875rem}
-    .murl{font-size:.8rem;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .murl{font:inherit;font-size:.8rem;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:left;background:none;border:0;padding:0;cursor:pointer;min-width:0}.murl:hover{color:var(--heading);text-decoration:underline}
     .badge{display:inline-block;padding:.2rem .5rem;border-radius:4px;font-size:.75rem;font-weight:500}
     .badge-up{background:#dcfce7;color:#16a34a}
     .badge-down{background:#fee2e2;color:#dc2626}
@@ -158,7 +158,10 @@ export function renderAdmin(hasAssets: boolean): string {
   <div class="modal">
     <h3 id="mm-title">Add Monitor</h3>
     <div class="fg"><label>Name</label><input id="m-name" type="text" placeholder="My Website"></div>
-    <div class="fg"><label>URL</label><input id="m-url" type="text" placeholder="https://... or tcp://..."></div>
+    <div class="fg"><label>Monitor Type</label><select id="m-type" onchange="updateMonitorTypeFields()"><option value="http">HTTP / HTTPS</option><option value="tcp">TCP Port</option><option value="keyword">Keyword Match</option><option value="push">Push / Heartbeat</option><option value="push_down">Upside-down Push</option><option value="manual">Manual</option></select></div>
+    <div class="fg" id="m-url-field"><label>URL</label><input id="m-url" type="text" placeholder="https://... or tcp://... or keyword search term"></div>
+    <div id="m-grace-field" style="display:none" class="fg"><label>Grace Period (push only)</label><select id="m-grace-period"><option value="1">1 minute</option><option value="5">5 minutes</option><option value="10">10 minutes</option><option value="15">15 minutes</option><option value="30">30 minutes</option></select></div>
+    <div class="fg"><label>Retry Count</label><select id="m-retry-count"><option value="1">1 — no retries</option><option value="2" selected>2 (default)</option><option value="3">3</option><option value="4">4</option><option value="5">5</option></select></div>
     <div class="frow">
       <div class="fg">
         <label>Check Interval</label>
@@ -172,16 +175,6 @@ export function renderAdmin(hasAssets: boolean): string {
       <div class="fg"><label>Timeout (ms)</label><input id="m-timeout" type="number" value="5000" min="1000" max="30000"></div>
     </div>
     <div class="fg"><label>Expected Status Code (optional, e.g. 401)</label><input id="m-expected-status" type="number" placeholder="Leave blank for any 2xx–3xx" min="100" max="599"></div>
-    <div class="fg">
-      <label>Attempts before marking down</label>
-      <select id="m-retry-count">
-        <option value="1">1 — no retries</option>
-        <option value="2" selected>2 (default)</option>
-        <option value="3">3</option>
-        <option value="4">4</option>
-        <option value="5">5</option>
-      </select>
-    </div>
     <div class="fg"><label>Alert Webhook (Slack / Discord / custom)</label><input id="m-webhook" type="url" placeholder="https://hooks.slack.com/..."></div>
     <div class="fg">
       <label>JSON Monitoring (optional)</label>
@@ -309,12 +302,16 @@ export function renderAdmin(hasAssets: boolean): string {
     editingId = m?.id || null;
     document.getElementById('mm-title').textContent = m ? 'Edit Monitor' : 'Add Monitor';
     document.getElementById('m-name').value = m?.name || '';
+    document.getElementById('m-type').value = m?.monitor_type || 'http';
     document.getElementById('m-url').value = m?.url || '';
     document.getElementById('m-interval').value = m?.interval_minutes || '1';
     document.getElementById('m-timeout').value = m?.timeout_ms || '5000';
     document.getElementById('m-expected-status').value = m?.expected_status_code || '';
     document.getElementById('m-retry-count').value = m?.retry_count ?? 2;
     document.getElementById('m-webhook').value = m?.alert_webhook || '';
+    if (document.getElementById('m-grace-period')) {
+      document.getElementById('m-grace-period').value = m?.grace_period_minutes ?? 1;
+    }
     const hasJson = !!(m?.json_path);
     const isStatuspage = m?.json_path === STATUSPAGE_PATH && m?.json_status_map === STATUSPAGE_MAP;
     const preset = !hasJson ? '' : isStatuspage ? 'statuspage' : 'custom';
@@ -322,7 +319,44 @@ export function renderAdmin(hasAssets: boolean): string {
     document.getElementById('m-json-fields').style.display = hasJson ? '' : 'none';
     document.getElementById('m-json-path').value = m?.json_path || '';
     document.getElementById('m-json-map').value = m?.json_status_map || '';
+    updateMonitorTypeFields();
     document.getElementById('monitor-modal').classList.add('open');
+  }
+
+  function updateMonitorTypeFields() {
+    const type = document.getElementById('m-type').value;
+    const isPush = type === 'push' || type === 'push_down';
+    const isKeyword = type === 'keyword';
+    const isManual = type === 'manual';
+    document.getElementById('m-url-field').style.display = isPush || isKeyword || isManual ? 'none' : '';
+    const url = document.getElementById('m-url');
+    url.disabled = isPush || isKeyword || isManual;
+    url.placeholder = isPush ? 'Generated after saving' : isKeyword ? 'Keyword search term' : type === 'tcp' ? 'tcp://host:port' : 'https://...';
+    if (isPush) url.value = 'push://heartbeat';
+    else if (url.value === 'push://heartbeat') url.value = '';
+    ['m-timeout','m-expected-status','m-retry-count','m-json-preset'].forEach(id => {
+      const field = document.getElementById(id);
+      field.closest('.fg').style.display = isPush ? 'none' : '';
+    });
+    document.getElementById('m-json-fields').style.display = isPush ? 'none' : document.getElementById('m-json-fields').style.display;
+    
+    // Show/hide keyword field for keyword monitors
+    const kwField = document.getElementById('m-keyword-field');
+    if (kwField) {
+      kwField.style.display = isKeyword ? '' : 'none';
+    }
+    
+    // Show/hide manual status field for manual monitors
+    const manualField = document.getElementById('m-manual-status-field');
+    if (manualField) {
+      manualField.style.display = isManual ? '' : 'none';
+    }
+    
+    // Show/hide grace period field for push monitors
+    const graceField = document.getElementById('m-grace-field');
+    if (graceField) {
+      graceField.style.display = isPush ? '' : 'none';
+    }
   }
 
   function closeMonitorModal() {
@@ -333,6 +367,7 @@ export function renderAdmin(hasAssets: boolean): string {
   async function saveMonitor() {
     const data = {
       name: document.getElementById('m-name').value.trim(),
+      monitor_type: document.getElementById('m-type').value,
       url: document.getElementById('m-url').value.trim(),
       interval_minutes: parseInt(document.getElementById('m-interval').value),
       timeout_ms: parseInt(document.getElementById('m-timeout').value),
@@ -341,6 +376,9 @@ export function renderAdmin(hasAssets: boolean): string {
       alert_webhook: document.getElementById('m-webhook').value.trim() || null,
       json_path: document.getElementById('m-json-path').value.trim() || null,
       json_status_map: (() => { try { const v = document.getElementById('m-json-map').value.trim(); return v ? JSON.parse(v) : null; } catch { return '__invalid__'; } })(),
+      keyword: document.getElementById('m-keyword') ? document.getElementById('m-keyword').value.trim() : null,
+      manual_status: document.getElementById('m-manual-status') ? (() => { const v = document.getElementById('m-manual-status').value; return v === 'up' || v === 'degraded' || v === 'down' ? v : null; })() : null,
+      grace_period_minutes: document.getElementById('m-grace-period') ? parseInt(document.getElementById('m-grace-period').value) : 1,
     };
     if (!data.name || !data.url) { toast('Name and URL are required', 'error'); return; }
     if (data.json_status_map === '__invalid__') { toast('JSON Status Map is not valid JSON', 'error'); return; }
@@ -395,14 +433,14 @@ export function renderAdmin(hasAssets: boolean): string {
       return;
     }
     const rows = monitors.map((m, i) => {
-      const st = m.latest_check ? (m.latest_check.ok ? 'up' : 'down') : 'unknown';
+      const st = m.latest_check ? (m.latest_check.ok ? 'up' : 'down') : m.monitor_type === 'push_down' ? 'up' : 'unknown';
       const label = st === 'up' ? 'Operational' : st === 'down' ? 'Down' : 'No data';
       const uptime = m.uptime_30d !== undefined ? m.uptime_30d + '%' : '—';
       const lat = m.latest_check?.latency_ms != null ? m.latest_check.latency_ms + ' ms' : '—';
       return '<div class="mrow">' +
         '<div class="dot dot-' + st + '"></div>' +
         '<div class="mname">' + esc(m.name) + '</div>' +
-        '<div class="murl" title="' + esc(m.url) + '">' + esc(m.url) + '</div>' +
+        '<button class="murl" title="Click to copy" onclick="copyMonitorUrl(' + i + ')">' + esc(m.monitor_type === 'push' || m.monitor_type === 'push_down' ? m.push_url : m.url) + '</button>' +
         '<span class="badge badge-' + st + '">' + label + '</span>' +
         '<span style="font-size:.875rem;font-weight:500">' + uptime + '</span>' +
         '<span style="font-size:.875rem;color:var(--text-muted)">' + lat + '</span>' +
@@ -415,6 +453,17 @@ export function renderAdmin(hasAssets: boolean): string {
     el.innerHTML = '<div class="card">' +
       '<div class="th"><span></span><span>Name</span><span>URL</span><span>Status</span><span>30d uptime</span><span>Latency</span><span>Actions</span></div>' +
       rows + '</div>';
+  }
+
+  async function copyMonitorUrl(index) {
+    try {
+      const monitor = monitors[index];
+      const url = monitor.monitor_type === 'push' || monitor.monitor_type === 'push_down' ? monitor.push_url : monitor.url;
+      await navigator.clipboard.writeText(url);
+      toast('Monitor URL copied');
+    } catch {
+      toast('Could not copy monitor URL', 'error');
+    }
   }
 
   function openPageModal() {

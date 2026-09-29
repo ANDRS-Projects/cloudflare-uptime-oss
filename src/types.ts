@@ -8,7 +8,9 @@ export interface Env {
 export interface Monitor {
   id: string;
   name: string;
+  monitor_type: 'http' | 'tcp' | 'keyword' | 'push' | 'push_down' | 'manual';
   url: string;
+  grace_period_minutes: number;
   interval_minutes: number;
   timeout_ms: number;
   alert_webhook: string | null;
@@ -16,8 +18,11 @@ export interface Monitor {
   retry_count: number;
   json_path: string | null;
   json_status_map: string | null;
+  keyword: string | null;
+  manual_status: 'up' | 'degraded' | 'down' | null;
   created_at: number;
   active: number;
+  last_heartbeat_at: number | null;
 }
 
 export interface Check {

@@ -11,14 +11,31 @@ export async function getMonitor(db: D1Database, id: string): Promise<Monitor | 
 
 export async function createMonitor(
   db: D1Database,
-  m: Omit<Monitor, 'created_at' | 'active'>
+m: Omit<Monitor, 'created_at' | 'active' | 'last_heartbeat_at'>
 ): Promise<void> {
   await db
     .prepare(
-      'INSERT INTO monitors (id, name, url, interval_minutes, timeout_ms, alert_webhook, expected_status_code, retry_count, json_path, json_status_map) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+      'INSERT INTO monitors (id, name, monitor_type, url, interval_minutes, timeout_ms, alert_webhook, expected_status_code, retry_count, json_path, json_status_map, keyword, manual_status, grace_period_minutes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
     )
-    .bind(m.id, m.name, m.url, m.interval_minutes, m.timeout_ms, m.alert_webhook, m.expected_status_code ?? null, m.retry_count, m.json_path ?? null, m.json_status_map ?? null)
+    .bind(m.id, m.name, m.monitor_type, m.url, m.interval_minutes, m.timeout_ms, m.alert_webhook, m.expected_status_code ?? null, m.retry_count, m.json_path ?? null, m.json_status_map ?? null, m.keyword ?? null, m.manual_status ?? null, m.grace_period_minutes)
     .run();
+}
+
+export async function recordPushHeartbeat(
+  db: D1Database,
+  monitorId: string,
+  checkedAt: number,
+  result: CheckResult
+): Promise<void> {
+  const bucketStart = Math.floor(checkedAt / UPTIME_BUCKET_SECONDS) * UPTIME_BUCKET_SECONDS;
+  await db.batch([
+    db.prepare('UPDATE monitors SET last_heartbeat_at = ?, last_checked_at = ? WHERE id = ?').bind(checkedAt, checkedAt, monitorId),
+    db.prepare('INSERT INTO checks (monitor_id, status_code, ok, degraded, latency_ms, error) VALUES (?, ?, ?, ?, ?, ?)').bind(monitorId, result.status_code, result.ok ? 1 : 0, result.degraded ? 1 : 0, result.latency_ms, result.error),
+    db.prepare(`INSERT INTO uptime_bucket_rollups (monitor_id, bucket_start, cnt, up_cnt, degraded_cnt)
+      VALUES (?, ?, 1, ?, ?)
+      ON CONFLICT(monitor_id, bucket_start) DO UPDATE SET
+        cnt = cnt + 1, up_cnt = up_cnt + excluded.up_cnt, degraded_cnt = degraded_cnt + excluded.degraded_cnt`).bind(monitorId, bucketStart, result.ok ? 1 : 0, result.degraded ? 1 : 0),
+  ]);
 }
 
 export async function updateMonitor(
