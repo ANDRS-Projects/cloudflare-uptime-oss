@@ -102,7 +102,7 @@ export default {
     if (event.cron === '*/15 * * * *') {
       ctx.waitUntil(runHealthCheck(env));
     } else {
-      ctx.waitUntil(runCronJob(env));
+      ctx.waitUntil(runCronJob(env, event.scheduledTime));
     }
   },
 };

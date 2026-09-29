@@ -20,10 +20,17 @@ function checkOffset(monitorId: string, intervalMinutes: number): number {
   return hash % intervalMinutes;
 }
 
-export async function runCronJob(env: Env): Promise<void> {
+export async function runCronJob(env: Env, scheduledTime: number): Promise<void> {
   const monitors = await db.getMonitors(env.DB);
   const now = Math.floor(Date.now() / 1000);
-  const minuteOfDay = Math.floor(now / 60);
+  // Which minute this tick is for comes from the trigger's scheduled time, not
+  // the wall clock: Cloudflare regularly starts cron invocations ~60s late, so
+  // Date.now() would land a tick in the next minute — that minute's monitors
+  // get checked twice (by this tick and the next) and this minute's monitors
+  // get skipped entirely, which the health check then reports as stale.
+  // Rounded rather than floored so a scheduledTime a few seconds off the
+  // minute boundary (production logs show e.g. :02) still maps to its minute.
+  const minuteOfDay = Math.round(scheduledTime / 60000);
 
   const due = monitors.filter(
     (m) =>
