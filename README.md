@@ -28,6 +28,8 @@ Self-hosted uptime monitoring on Cloudflare Workers with public status pages —
 ## Features
 
 - **Multi-monitor support** — track any HTTP endpoint or TCP socket (via `tcp://`) with configurable check intervals and timeouts
+- **Keyword monitors** — an HTTP check that also requires a given piece of text to appear in the page; goes down when the page loads but the text is missing
+- **Push (heartbeat) monitors** — for cron jobs, backups and anything else you can't poll: your job calls a secret URL when it runs, and the monitor goes down if the call doesn't arrive in time. An *upside-down* variant goes down when its URL is called. **Manual monitors** let you set a status by hand. See [Push, keyword and manual monitors](#push-keyword-and-manual-monitors)
 - **Public status pages** — shareable `/status/:slug` pages with live up/down status per monitor
 - **90-day latency history** — sparkline graph built from the rolling check history; can be hidden per status page from the admin dashboard if you'd rather not publish response-time data
 - **Incident timeline** — timestamped incidents with human-readable failure reasons (HTTP status badge + description, timeout label, or raw error)
@@ -238,14 +240,44 @@ There is no traditional `.env` file — see `.env.example` for a full annotated 
 
 | Field | Description |
 |-------|-------------|
-| `url` | The HTTP(S) endpoint or TCP socket (e.g., `tcp://example.com:5432`) to monitor |
-| `interval_minutes` | How often to check (1, 5, 10, 15, 30, 60) |
+| `url` | The HTTP(S) endpoint or TCP socket (e.g., `tcp://example.com:5432`) to monitor. Not used by `push`, `push_down` or `manual` monitors |
+| `monitor_type` | `http` (default), `tcp`, `keyword`, `push`, `push_down` or `manual` — see [Push, keyword and manual monitors](#push-keyword-and-manual-monitors) |
+| `interval_minutes` | How often to check (1, 5, 10, 30). For `push` and `push_down` monitors it is the expected heartbeat interval / how long a trigger keeps the monitor down, and also allows 60, 360, 720 and 1440 (daily) |
 | `timeout_ms` | Request timeout in milliseconds (default: 10000) |
 | `expected_status_code` | Expected HTTP response code (optional — leave blank to accept any 2xx–3xx) |
 | `retry_count` | Total check attempts before marking a site down (default: 3 — each failed attempt waits 2 s before retrying, so 3 attempts = up to 4 s before an incident fires) |
 | `alert_webhook` | Slack or Discord incoming webhook URL for up/down alerts |
 | `json_path` | Dot-notation path to extract from the JSON response body (e.g. `status.indicator`). Leave blank for plain HTTP monitoring. |
 | `json_status_map` | JSON object mapping extracted values to `up`, `degraded`, or `down` (e.g. `{"none":"up","minor":"degraded","critical":"down"}`). Select the **Statuspage.io** preset in the admin to fill this automatically. |
+| `keyword` | `keyword` monitors only: case-sensitive text that must appear in the first 512 KB of the response body |
+| `manual_status` | `manual` monitors only: `up`, `degraded` or `down` |
+| `grace_period_minutes` | `push` monitors only: how long past the expected interval a missed heartbeat is shown as degraded before the monitor goes down and alerts (default: 5) |
+
+### Push, keyword and manual monitors
+
+Pick the type when you add a monitor in the admin dashboard.
+
+**Keyword** — like an HTTP monitor (same status-code, timeout and retry settings), but the check only passes if `keyword` appears in the response body. Matching is case-sensitive and only looks at the first 512 KB. A missing keyword shows as "Keyword not found". Not combinable with JSON monitoring.
+
+**Push (heartbeat)** — for things that can't be polled, like cron jobs and backups. Saving the monitor generates a secret URL, shown in the monitor list (click it to copy):
+
+```bash
+# last line of your backup script, so it only runs when the backup succeeded
+./backup.sh && curl -fsS -m 10 --retry 3 "https://<your-worker>/api/push/<token>"
+```
+
+- `GET`, `POST` and `PUT` all count. Add `?ping=255` to record a latency of 255 ms.
+- A heartbeat marks the monitor up and resolves any open incident.
+- If no heartbeat arrives within the expected interval the monitor turns **degraded** (no incident, no alert) for the grace period, then **down** with an incident and your alert webhook. A new monitor waits one full interval for its first heartbeat before anything happens, and shows "No data" until then.
+- The status is re-evaluated on the monitor's own schedule, so a missed heartbeat is noticed at the first evaluation after interval + grace, not at that exact moment.
+- If your client gets a 403 from Cloudflare, send a normal `User-Agent` header (some bot protections challenge requests that have none).
+- Heartbeats arriving less than 10 seconds after the previous one are acknowledged but not recorded, and paused monitors ignore them.
+
+**Upside-down push** (`push_down`) — the reverse: the monitor is up until its URL is called, then goes down (with an incident and alert) for one interval, then recovers by itself. Useful for "something went wrong" signals from a service that should normally stay silent.
+
+**Manual** — no checks run; the status you set (`up`, `degraded` or `down`) is recorded every interval until you change it. Setting it to `down` opens an incident and fires the alert webhook like any other outage. Use it to publish a known outage or maintenance state. It always reports the status you set, whatever the real service is doing.
+
+The push URL is the only credential for the heartbeat endpoint, which is deliberately unauthenticated so jobs don't need your `API_KEY`. It is a random token, separate from the monitor id (which public status pages expose), and is never shown on status pages or in alerts. See the [caveat below](#caveats) about treating it like a password.
 
 ### Per-status-page settings (set via admin dashboard)
 
@@ -296,6 +328,13 @@ ALTER TABLE monitors ADD COLUMN expected_status_code INTEGER;
 ALTER TABLE monitors ADD COLUMN retry_count INTEGER NOT NULL DEFAULT 3;
 ALTER TABLE monitors ADD COLUMN json_path TEXT;
 ALTER TABLE monitors ADD COLUMN json_status_map TEXT;
+ALTER TABLE monitors ADD COLUMN monitor_type TEXT NOT NULL DEFAULT 'http';
+ALTER TABLE monitors ADD COLUMN keyword TEXT;
+ALTER TABLE monitors ADD COLUMN manual_status TEXT;
+ALTER TABLE monitors ADD COLUMN grace_period_minutes INTEGER NOT NULL DEFAULT 5;
+ALTER TABLE monitors ADD COLUMN push_token TEXT;
+ALTER TABLE monitors ADD COLUMN last_heartbeat_at INTEGER;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_monitors_push_token ON monitors(push_token);
 ALTER TABLE checks ADD COLUMN degraded INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE checks ADD COLUMN json_value TEXT;
 ALTER TABLE status_pages ADD COLUMN min_incident_duration_minutes INTEGER NOT NULL DEFAULT 0;
@@ -314,6 +353,8 @@ npx wrangler d1 migrations apply uptime-monitor --remote
 
 Migration `007_add_uptime_bucket_rollups.sql` (added in 1.6.2) is the one migration here that isn't a plain `ALTER TABLE` — it creates a new `uptime_bucket_rollups` table and backfills it from your existing `checks` data in the same statement, so the uptime bar and uptime% don't show a gap for the 30 days before you upgraded. Apply it the same way: `npx wrangler d1 migrations apply uptime-monitor --remote`.
 
+Migration `012_add_push_keyword_manual_monitors.sql` adds the columns behind push, keyword and manual monitors (see [above](#push-keyword-and-manual-monitors)). Existing monitors become `http` monitors and keep working unchanged. Apply it before deploying, as above: until it is applied, creating a monitor fails.
+
 Migration `008_add_show_latency.sql` adds a per-status-page toggle for the response time graph (`show_latency`, defaults to on — existing pages keep showing it unless you turn it off from the admin dashboard).
 
 Migration `009_add_worker_health.sql` adds the `worker_health` table backing the self-monitoring health check. Unlike the other migrations, this one also needs a `wrangler.toml` change that isn't part of the migration itself: add a second cron trigger so the health check runs independently of the 1-minute check loop —
@@ -324,6 +365,9 @@ crons = ["* * * * *", "*/15 * * * *"]
 ```
 
 Apply the migration before deploying the updated code, same rule as above — otherwise the health-check cron errors on every tick until the table exists.
+
+**Push URLs are passwords.**
+The `/api/push/<token>` endpoint needs no `API_KEY`, so anyone who learns a monitor's URL can fake heartbeats (or, for upside-down monitors, trigger outages). Keep the URL in your job's secret store rather than in a repo or shared log. There is no rotate button yet: to issue a new URL, delete and re-create the monitor. Heartbeats are not rate-limited beyond ignoring repeats within 10 seconds, so a leaked URL can also be used to write check rows.
 
 **Custom domains require Cloudflare DNS — and no pre-created DNS records.**
 `custom_domain = true` in `wrangler.toml` only works when the domain's zone is on Cloudflare DNS.

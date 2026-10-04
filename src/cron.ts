@@ -2,6 +2,7 @@ import type { CheckResult, Env, Incident, Monitor } from './types';
 import * as db from './db';
 import { checkWithRetry } from './checks';
 import { sendAlert } from './alerts';
+import { evaluatePassiveMonitor, isPassiveType } from './passive';
 
 // Deterministic per-monitor offset within its own interval, derived from the
 // monitor's id (stable across deploys and cron runs). Without this, every
@@ -39,14 +40,20 @@ export async function runCronJob(env: Env, scheduledTime: number): Promise<void>
   );
 
   const settled = await Promise.allSettled(
-    due.map(async (m) => ({ monitor: m, result: await checkWithRetry(m) }))
+    due.map(async (m) => {
+      if (isPassiveType(m.monitor_type)) {
+        const result = evaluatePassiveMonitor(m, now);
+        return result && { monitor: m, result };
+      }
+      return { monitor: m, result: await checkWithRetry(m) };
+    })
   );
   const checked = settled
     .filter(
-      (r): r is PromiseFulfilledResult<{ monitor: Monitor; result: CheckResult }> =>
-        r.status === 'fulfilled'
+      (r): r is PromiseFulfilledResult<{ monitor: Monitor; result: CheckResult } | null> =>
+        r.status === 'fulfilled' && r.value !== null
     )
-    .map((r) => r.value);
+    .map((r) => r.value as { monitor: Monitor; result: CheckResult });
 
   // Every due monitor needs a check row + rollup upsert, and needs its
   // current open-incident state, every single tick — those two reads/writes
@@ -83,7 +90,7 @@ export async function runCronJob(env: Env, scheduledTime: number): Promise<void>
   }
 }
 
-async function handleIncidentState(
+export async function handleIncidentState(
   env: Env,
   monitor: Monitor,
   result: CheckResult,

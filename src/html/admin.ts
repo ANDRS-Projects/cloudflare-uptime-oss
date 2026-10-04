@@ -158,18 +158,53 @@ export function renderAdmin(hasAssets: boolean): string {
   <div class="modal">
     <h3 id="mm-title">Add Monitor</h3>
     <div class="fg"><label>Name</label><input id="m-name" type="text" placeholder="My Website"></div>
-    <div class="fg"><label>URL</label><input id="m-url" type="text" placeholder="https://... or tcp://..."></div>
+    <div class="fg"><label>Monitor Type</label>
+      <select id="m-type" onchange="updateMonitorTypeFields()">
+        <option value="http">HTTP / HTTPS</option>
+        <option value="tcp">TCP Port</option>
+        <option value="keyword">Keyword Match</option>
+        <option value="push">Push / Heartbeat</option>
+        <option value="push_down">Upside-down Push</option>
+        <option value="manual">Manual</option>
+      </select>
+      <div id="m-type-hint" style="font-size:.75rem;color:var(--text-muted);margin-top:.25rem"></div>
+    </div>
+    <div class="fg" id="m-url-field"><label>URL</label><input id="m-url" type="text" placeholder="https://... or tcp://..."></div>
+    <div class="fg" id="m-keyword-field" style="display:none"><label>Keyword (case-sensitive)</label><input id="m-keyword" type="text" placeholder="Text that must appear in the page"></div>
+    <div class="fg" id="m-manual-field" style="display:none">
+      <label>Status</label>
+      <select id="m-manual-status">
+        <option value="up">Operational</option>
+        <option value="degraded">Degraded</option>
+        <option value="down">Down</option>
+      </select>
+    </div>
     <div class="frow">
       <div class="fg">
-        <label>Check Interval</label>
+        <label id="m-interval-label">Check Interval</label>
         <select id="m-interval">
           <option value="1">Every 1 minute</option>
           <option value="5">Every 5 minutes</option>
           <option value="10">Every 10 minutes</option>
           <option value="30">Every 30 minutes</option>
+          <option value="60" data-long="1">Every hour</option>
+          <option value="360" data-long="1">Every 6 hours</option>
+          <option value="720" data-long="1">Every 12 hours</option>
+          <option value="1440" data-long="1">Every 24 hours</option>
         </select>
       </div>
       <div class="fg"><label>Timeout (ms)</label><input id="m-timeout" type="number" value="5000" min="1000" max="30000"></div>
+    </div>
+    <div class="fg" id="m-grace-field" style="display:none">
+      <label>Grace period after a missed heartbeat</label>
+      <select id="m-grace-period">
+        <option value="1">1 minute</option>
+        <option value="5" selected>5 minutes</option>
+        <option value="10">10 minutes</option>
+        <option value="15">15 minutes</option>
+        <option value="30">30 minutes</option>
+        <option value="60">1 hour</option>
+      </select>
     </div>
     <div class="fg"><label>Expected Status Code (optional, e.g. 401)</label><input id="m-expected-status" type="number" placeholder="Leave blank for any 2xx–3xx" min="100" max="599"></div>
     <div class="fg">
@@ -309,7 +344,13 @@ export function renderAdmin(hasAssets: boolean): string {
     editingId = m?.id || null;
     document.getElementById('mm-title').textContent = m ? 'Edit Monitor' : 'Add Monitor';
     document.getElementById('m-name').value = m?.name || '';
-    document.getElementById('m-url').value = m?.url || '';
+    const isLegacyTcp = m && m.monitor_type === 'http' && m.url.indexOf('tcp://') === 0;
+    document.getElementById('m-type').value = isLegacyTcp ? 'tcp' : (m?.monitor_type || 'http');
+    const hasRealUrl = m && m.url && m.url.indexOf('push://') !== 0 && m.url.indexOf('manual://') !== 0;
+    document.getElementById('m-url').value = hasRealUrl ? m.url : '';
+    document.getElementById('m-keyword').value = m?.keyword || '';
+    document.getElementById('m-manual-status').value = m?.manual_status || 'up';
+    document.getElementById('m-grace-period').value = m?.grace_period_minutes ?? 5;
     document.getElementById('m-interval').value = m?.interval_minutes || '1';
     document.getElementById('m-timeout').value = m?.timeout_ms || '5000';
     document.getElementById('m-expected-status').value = m?.expected_status_code || '';
@@ -322,7 +363,40 @@ export function renderAdmin(hasAssets: boolean): string {
     document.getElementById('m-json-fields').style.display = hasJson ? '' : 'none';
     document.getElementById('m-json-path').value = m?.json_path || '';
     document.getElementById('m-json-map').value = m?.json_status_map || '';
+    updateMonitorTypeFields();
     document.getElementById('monitor-modal').classList.add('open');
+  }
+
+  function setShown(el, shown) { el.style.display = shown ? '' : 'none'; }
+
+  const TYPE_HINTS = {
+    keyword: 'Up while the keyword appears in the first 512 KB of the response.',
+    push: 'Your service sends a request to a generated URL. Down if none arrives in time.',
+    push_down: 'Normally up. Each request to the generated URL marks it down for one interval.',
+    manual: 'No checks run. The status you pick is recorded at the chosen interval until you change it.'
+  };
+
+  function updateMonitorTypeFields() {
+    const type = document.getElementById('m-type').value;
+    const passive = type === 'push' || type === 'push_down' || type === 'manual';
+    const pushy = type === 'push' || type === 'push_down';
+    setShown(document.getElementById('m-url-field'), !passive);
+    document.getElementById('m-url').placeholder = type === 'tcp' ? 'tcp://host:port' : 'https://...';
+    setShown(document.getElementById('m-keyword-field'), type === 'keyword');
+    setShown(document.getElementById('m-manual-field'), type === 'manual');
+    setShown(document.getElementById('m-grace-field'), type === 'push');
+    ['m-timeout', 'm-expected-status', 'm-retry-count'].forEach(function (id) {
+      setShown(document.getElementById(id).closest('.fg'), !passive);
+    });
+    setShown(document.getElementById('m-json-preset').closest('.fg'), !passive && type !== 'keyword');
+    const hasPreset = !!document.getElementById('m-json-preset').value;
+    setShown(document.getElementById('m-json-fields'), !passive && type !== 'keyword' && hasPreset);
+    document.getElementById('m-interval-label').textContent =
+      type === 'push' ? 'Expected heartbeat every' : type === 'push_down' ? 'Stay down for' : type === 'manual' ? 'Record status every' : 'Check Interval';
+    const interval = document.getElementById('m-interval');
+    Array.from(interval.options).forEach(function (o) { o.hidden = !!o.dataset.long && !pushy; o.disabled = o.hidden; });
+    if (interval.selectedOptions[0] && interval.selectedOptions[0].disabled) interval.value = '5';
+    document.getElementById('m-type-hint').textContent = TYPE_HINTS[type] || '';
   }
 
   function closeMonitorModal() {
@@ -331,26 +405,33 @@ export function renderAdmin(hasAssets: boolean): string {
   }
 
   async function saveMonitor() {
+    const type = document.getElementById('m-type').value;
+    const passive = type === 'push' || type === 'push_down' || type === 'manual';
+    const usesJson = !passive && type !== 'keyword';
     const data = {
       name: document.getElementById('m-name').value.trim(),
-      url: document.getElementById('m-url').value.trim(),
+      monitor_type: type,
+      url: passive ? '' : document.getElementById('m-url').value.trim(),
       interval_minutes: parseInt(document.getElementById('m-interval').value),
       timeout_ms: parseInt(document.getElementById('m-timeout').value),
       expected_status_code: parseInt(document.getElementById('m-expected-status').value) || null,
       retry_count: parseInt(document.getElementById('m-retry-count').value),
       alert_webhook: document.getElementById('m-webhook').value.trim() || null,
-      json_path: document.getElementById('m-json-path').value.trim() || null,
-      json_status_map: (() => { try { const v = document.getElementById('m-json-map').value.trim(); return v ? JSON.parse(v) : null; } catch { return '__invalid__'; } })(),
+      json_path: usesJson ? document.getElementById('m-json-path').value.trim() || null : null,
+      json_status_map: usesJson ? (() => { try { const v = document.getElementById('m-json-map').value.trim(); return v ? JSON.parse(v) : null; } catch { return '__invalid__'; } })() : null,
+      keyword: type === 'keyword' ? document.getElementById('m-keyword').value.trim() : null,
+      manual_status: type === 'manual' ? document.getElementById('m-manual-status').value : null,
+      grace_period_minutes: parseInt(document.getElementById('m-grace-period').value),
     };
-    if (!data.name || !data.url) { toast('Name and URL are required', 'error'); return; }
+    if (!data.name) { toast('Name is required', 'error'); return; }
+    if (!passive && !data.url) { toast('URL is required', 'error'); return; }
+    if (type === 'keyword' && !data.keyword) { toast('Keyword is required', 'error'); return; }
     if (data.json_status_map === '__invalid__') { toast('JSON Status Map is not valid JSON', 'error'); return; }
-    if (editingId) {
-      await api('/api/monitors/' + editingId, { method: 'PUT', body: JSON.stringify(data) });
-      toast('Monitor updated');
-    } else {
-      await api('/api/monitors', { method: 'POST', body: JSON.stringify(data) });
-      toast('Monitor created');
-    }
+    const res = editingId
+      ? await api('/api/monitors/' + editingId, { method: 'PUT', body: JSON.stringify(data) })
+      : await api('/api/monitors', { method: 'POST', body: JSON.stringify(data) });
+    if (res && res.error) { toast(res.error, 'error'); return; }
+    toast(editingId ? 'Monitor updated' : 'Monitor created');
     closeMonitorModal();
     await loadMonitors();
   }
@@ -395,14 +476,14 @@ export function renderAdmin(hasAssets: boolean): string {
       return;
     }
     const rows = monitors.map((m, i) => {
-      const st = m.latest_check ? (m.latest_check.ok ? 'up' : 'down') : 'unknown';
+      const st = m.latest_check ? (m.latest_check.ok ? 'up' : 'down') : m.monitor_type === 'push_down' ? 'up' : m.monitor_type === 'manual' ? (m.manual_status === 'down' ? 'down' : 'up') : 'unknown';
       const label = st === 'up' ? 'Operational' : st === 'down' ? 'Down' : 'No data';
       const uptime = m.uptime_30d !== undefined ? m.uptime_30d + '%' : '—';
       const lat = m.latest_check?.latency_ms != null ? m.latest_check.latency_ms + ' ms' : '—';
       return '<div class="mrow">' +
         '<div class="dot dot-' + st + '"></div>' +
         '<div class="mname">' + esc(m.name) + '</div>' +
-        '<div class="murl" title="' + esc(m.url) + '">' + esc(m.url) + '</div>' +
+        '<div class="murl"' + (m.push_url ? ' style="cursor:pointer" onclick="copyPushUrl(' + i + ')"' : '') + ' title="' + esc(monitorTarget(m) + (m.push_url ? ' (click to copy)' : '')) + '">' + esc(monitorTarget(m)) + '</div>' +
         '<span class="badge badge-' + st + '">' + label + '</span>' +
         '<span style="font-size:.875rem;font-weight:500">' + uptime + '</span>' +
         '<span style="font-size:.875rem;color:var(--text-muted)">' + lat + '</span>' +
@@ -415,6 +496,22 @@ export function renderAdmin(hasAssets: boolean): string {
     el.innerHTML = '<div class="card">' +
       '<div class="th"><span></span><span>Name</span><span>URL</span><span>Status</span><span>30d uptime</span><span>Latency</span><span>Actions</span></div>' +
       rows + '</div>';
+  }
+
+  function monitorTarget(m) {
+    if (m.push_url) return m.push_url;
+    if (m.monitor_type === 'manual') return 'Manual status: ' + (m.manual_status || 'up');
+    if (m.monitor_type === 'keyword') return m.url + ' (keyword: ' + (m.keyword || '') + ')';
+    return m.url;
+  }
+
+  async function copyPushUrl(i) {
+    try {
+      await navigator.clipboard.writeText(monitors[i].push_url);
+      toast('Push URL copied');
+    } catch (e) {
+      toast('Could not copy - select the URL from the monitor settings instead', 'error');
+    }
   }
 
   function openPageModal() {

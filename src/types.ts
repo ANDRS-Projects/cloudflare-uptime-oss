@@ -5,9 +5,14 @@ export interface Env {
   HEALTH_ALERT_WEBHOOK?: string;
 }
 
+export const MONITOR_TYPES = ['http', 'tcp', 'keyword', 'push', 'push_down', 'manual'] as const;
+export type MonitorType = (typeof MONITOR_TYPES)[number];
+export type ManualStatus = 'up' | 'degraded' | 'down';
+
 export interface Monitor {
   id: string;
   name: string;
+  monitor_type: MonitorType;
   url: string;
   interval_minutes: number;
   timeout_ms: number;
@@ -16,8 +21,13 @@ export interface Monitor {
   retry_count: number;
   json_path: string | null;
   json_status_map: string | null;
+  keyword: string | null;
+  manual_status: ManualStatus | null;
+  grace_period_minutes: number;
+  push_token: string | null;
   created_at: number;
   active: number;
+  last_heartbeat_at: number | null;
 }
 
 export interface Check {

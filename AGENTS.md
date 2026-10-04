@@ -54,11 +54,13 @@ src/
   cron.ts            # ScheduledEvent handler (the * * * * * trigger) — runs checks, fires alerts, daily cleanup
   health.ts          # ScheduledEvent handler (the */15 * * * * trigger) — self-monitoring staleness check
   checks.ts          # HTTP check runner (fetch + AbortController timeout)
+  passive.ts         # Push / push_down / manual monitor logic (no network check): what cron records, what a heartbeat records
   alerts.ts          # Slack/Discord webhook payload builders (per-monitor and self-monitoring)
   db.ts              # All D1 query functions (single source of truth for SQL)
   types.ts           # Shared TypeScript interfaces (Env, Monitor, Check, Incident…)
   api/
     monitors.ts      # CRUD for monitors
+    push.ts          # Unauthenticated heartbeat endpoint (/api/push/:token) for push / push_down monitors
     pages.ts         # CRUD for status pages + monitor assignments
     notices.ts       # Maintenance notice lifecycle
     public.ts        # Unauthenticated status page data endpoint
@@ -125,6 +127,22 @@ src/alerts.ts        # Webhook format: Slack/Discord compatible attachments payl
   `npx tsx` to call `renderAdmin(true)`, extract the `<script>...</script>` block from
   the output, and run `node --check` on it. Don't rely on `tsc --noEmit` alone for this
   file.
+- **The push endpoint (`/api/push/:token`) is unauthenticated on purpose; its credential is
+  `monitors.push_token`, never `monitors.id`.** Public status pages return every monitor's `id`
+  (`api/public.ts`), so an id-as-token would let any visitor fake heartbeats. Keep the token out
+  of every public response, the RSS feed and alert payloads. The route is registered in
+  `worker.ts` before the `/api/*` auth middleware, so it must stay narrow (GET/POST/PUT only).
+- **`push`, `push_down` and `manual` monitors skip `checkWithRetry` entirely** — `cron.ts` asks
+  `passive.ts` what to record and feeds the result into the same batched `recordChecks` /
+  `getOpenIncidents` calls as every other monitor. Keep it that way: no per-monitor D1 calls in
+  the tick. A late `push` heartbeat is `ok: true, degraded: true` (like a JSON-mapped degraded
+  result: no incident, no alert) until interval + grace has passed, then down. `ok: false` +
+  `degraded: true` is wrong — the public page would show "Down" with no incident.
+- **Monitor types are listed once, in `MONITOR_TYPES` (`types.ts`).** Both the create and update
+  handlers in `api/monitors.ts` validate against it; a new type must also get a migration, a
+  `schema.sql` column if it needs one, and an entry in the admin form's `updateMonitorTypeFields`.
+- **`admin.ts`'s `api()` helper does not throw on 4xx/5xx** — it returns the JSON body. Check
+  `res.error` after a save, or the UI will report success for a rejected request.
 - **No frontend build step.** All HTML is returned as template-literal strings from
   `src/html/admin.ts` and `src/html/status.ts`. Do not introduce a bundler.
 - **`workers_dev = true`** in `wrangler.toml` exposes the Worker on a `.workers.dev` URL.
