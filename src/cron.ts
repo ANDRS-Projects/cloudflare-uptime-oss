@@ -2,6 +2,7 @@ import type { CheckResult, Env, Incident, Monitor } from './types';
 import * as db from './db';
 import { checkWithRetry } from './checks';
 import { sendAlert } from './alerts';
+import { evaluatePassiveMonitor, isPassiveType } from './passive';
 
 // Deterministic per-monitor offset within its own interval, derived from the
 // monitor's id (stable across deploys and cron runs). Without this, every
@@ -40,69 +41,9 @@ export async function runCronJob(env: Env, scheduledTime: number): Promise<void>
 
   const settled = await Promise.allSettled(
     due.map(async (m) => {
-      if (m.monitor_type === 'push') {
-        // If no heartbeat has ever been received, treat the monitor as
-        // overdue immediately — using created_at as the baseline would make
-        // the heartbeat age ≈ 0 on every tick, so the cron would always
-        // return null and the monitor would never be marked down.
-        if (m.last_heartbeat_at == null) {
-          const ageSinceCreation = now - m.created_at;
-          const gracePeriodSec = m.grace_period_minutes * 60;
-          if (ageSinceCreation < gracePeriodSec) {
-            // Within grace period from creation — degraded
-            return {
-              monitor: m,
-              result: { ok: false, degraded: true, status_code: 0, latency_ms: null, error: 'No heartbeat received (grace period)', json_value: null },
-            };
-          }
-          // Past grace period with no heartbeat — down
-          return {
-            monitor: m,
-            result: { ok: false, degraded: false, status_code: 0, latency_ms: null, error: 'No heartbeat received', json_value: null },
-          };
-        }
-        const heartbeatAge = now - m.last_heartbeat_at;
-        const intervalSec = m.interval_minutes * 60;
-        const gracePeriodSec = m.grace_period_minutes * 60;
-        if (heartbeatAge < intervalSec) {
-          // Within normal interval, heartbeat is fresh
-          return null;
-        }
-        if (heartbeatAge < intervalSec + gracePeriodSec) {
-          // Past interval but within grace period → degraded
-          return {
-            monitor: m,
-            result: { ok: false, degraded: true, status_code: 0, latency_ms: null, error: 'Heartbeat overdue (grace period)', json_value: null },
-          };
-        }
-        // Past grace period → down
-        return {
-          monitor: m,
-          result: { ok: false, degraded: false, status_code: 0, latency_ms: null, error: 'Heartbeat overdue', json_value: null },
-        };
-      }
-      if (m.monitor_type === 'push_down') {
-        const pushActive = m.last_heartbeat_at != null && now - m.last_heartbeat_at < m.interval_minutes * 60;
-        return {
-          monitor: m,
-          result: pushActive
-            ? { ok: false, degraded: false, status_code: 0, latency_ms: null, error: 'Push event active', json_value: null }
-            : { ok: true, degraded: false, status_code: 200, latency_ms: null, error: null, json_value: null },
-        };
-      }
-      if (m.monitor_type === 'manual') {
-        const status = m.manual_status ?? 'up';
-        return {
-          monitor: m,
-          result: {
-            ok: status === 'up' || status === 'degraded',
-            degraded: status === 'degraded',
-            status_code: status === 'up' || status === 'degraded' ? 200 : 0,
-            latency_ms: null,
-            error: status === 'down' ? 'Manual status: down' : null,
-            json_value: status,
-          },
-        };
+      if (isPassiveType(m.monitor_type)) {
+        const result = evaluatePassiveMonitor(m, now);
+        return result && { monitor: m, result };
       }
       return { monitor: m, result: await checkWithRetry(m) };
     })

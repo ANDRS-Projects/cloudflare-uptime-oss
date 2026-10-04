@@ -2,26 +2,33 @@ import type { Context } from 'hono';
 import type { Env } from '../types';
 import * as db from '../db';
 import { handleIncidentState } from '../cron';
+import { heartbeatResult, MIN_HEARTBEAT_GAP_SECONDS } from '../passive';
 
+// Unauthenticated by design: the secret push_token in the URL is the
+// credential. It is deliberately separate from the monitor id, which public
+// status pages expose.
 export async function receivePush(c: Context<{ Bindings: Env }>) {
-  const id = c.req.param('id');
-  if (!id) return c.json({ error: 'missing monitor id' }, 400);
+  const token = c.req.param('token');
+  const monitor = token ? await db.getMonitorByPushToken(c.env.DB, token) : null;
+  if (!monitor || (monitor.monitor_type !== 'push' && monitor.monitor_type !== 'push_down')) {
+    return c.json({ error: 'Push monitor not found' }, 404);
+  }
 
-  const monitor = await db.getMonitor(c.env.DB, id);
-  if (!monitor || (monitor.monitor_type !== 'push' && monitor.monitor_type !== 'push_down')) return c.json({ error: 'Push monitor not found' }, 404);
-
-  const now = Math.floor(Date.now() / 1000);
   const pingParam = c.req.query('ping');
-  const latency = pingParam == null ? 0 : Number(pingParam);
+  const latency = pingParam == null || pingParam === '' ? 0 : Number(pingParam);
   if (!Number.isFinite(latency) || latency < 0) {
     return c.json({ error: 'ping must be a non-negative number of milliseconds' }, 400);
   }
-  const result = monitor.monitor_type === 'push_down'
-    ? { ok: false, degraded: false, status_code: 0, latency_ms: latency, error: 'Push event active', json_value: null }
-    : { ok: true, degraded: false, status_code: 200, latency_ms: latency, error: null, json_value: null };
-  await db.recordPushHeartbeat(c.env.DB, id, now, result);
-  const openIncident = await db.getOpenIncident(c.env.DB, id);
+
+  const now = Math.floor(Date.now() / 1000);
+  if (monitor.active !== 1) return c.json({ ok: true, ignored: 'monitor is paused' });
+  if (monitor.last_heartbeat_at != null && now - monitor.last_heartbeat_at < MIN_HEARTBEAT_GAP_SECONDS) {
+    return c.json({ ok: true, ignored: 'heartbeat received too soon after the previous one' });
+  }
+
+  const result = heartbeatResult(monitor.monitor_type, Math.round(latency));
+  const openIncident = await db.recordPushHeartbeat(c.env.DB, monitor.id, now, result);
   await handleIncidentState(c.env, monitor, result, openIncident);
 
-  return c.json({ ok: true, monitor_id: id, received_at: now });
+  return c.json({ ok: true, received_at: now });
 }

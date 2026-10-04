@@ -38,7 +38,9 @@ app.use('*', async (c, next) => {
 });
 
 // ── Auth middleware (API routes only) ────────────────────────────────────────
-app.on(['GET', 'POST', 'PUT'], '/api/push/:id', receivePush);
+// Heartbeats authenticate with their secret push token, not X-API-Key, so this
+// is registered ahead of the /api/* auth middleware below.
+app.on(['GET', 'POST', 'PUT'], '/api/push/:token', receivePush);
 app.use('/api/*', cors());
 app.use('/api/*', async (c, next) => {
   const key = c.req.header('X-API-Key');

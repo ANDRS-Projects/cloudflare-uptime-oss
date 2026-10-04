@@ -15,6 +15,34 @@ export async function checkWithRetry(monitor: Monitor): Promise<CheckResult> {
   return last;
 }
 
+// A keyword is searched for in at most this much of the response body, so a
+// monitor pointed at a huge page can't blow the Worker's CPU/memory budget.
+const MAX_KEYWORD_SCAN_BYTES = 512 * 1024;
+
+// Streams the body and stops at the first match or the scan cap. Keeps the
+// last keyword.length - 1 characters between chunks so a match split across a
+// chunk boundary is still found.
+async function bodyContainsKeyword(response: Response, keyword: string): Promise<boolean> {
+  const reader = response.body?.getReader();
+  if (!reader) return false;
+  const decoder = new TextDecoder();
+  let carry = '';
+  let scanned = 0;
+  try {
+    while (scanned < MAX_KEYWORD_SCAN_BYTES) {
+      const { done, value } = await reader.read();
+      if (done) return false;
+      scanned += value.byteLength;
+      const text = carry + decoder.decode(value, { stream: true });
+      if (text.includes(keyword)) return true;
+      carry = keyword.length > 1 ? text.slice(-(keyword.length - 1)) : '';
+    }
+    return false;
+  } finally {
+    await reader.cancel().catch(() => {});
+  }
+}
+
 function resolvePath(obj: unknown, path: string): unknown {
   return path.split('.').reduce((cur, key) => {
     if (cur != null && typeof cur === 'object') return (cur as Record<string, unknown>)[key];
@@ -93,7 +121,25 @@ export async function runCheck(monitor: Monitor): Promise<CheckResult> {
       return { ok: false, degraded: false, status_code: response.status, latency_ms: Date.now() - start, error: null, json_value: null };
     }
 
-if (monitor.json_path && monitor.json_status_map) {
+    if (monitor.monitor_type === 'keyword') {
+      const keyword = monitor.keyword ?? '';
+      if (keyword === '') {
+        response.body?.cancel();
+        return { ok: false, degraded: false, status_code: response.status, latency_ms: Date.now() - start, error: 'No keyword configured', json_value: null };
+      }
+      // The fetch timeout above was cleared once headers arrived; re-arm it so
+      // a server that stalls mid-body can't hang the check.
+      const bodyTimeoutId = setTimeout(() => controller.abort(), monitor.timeout_ms);
+      let found: boolean;
+      try {
+        found = await bodyContainsKeyword(response, keyword);
+      } finally {
+        clearTimeout(bodyTimeoutId);
+      }
+      return { ok: found, degraded: false, status_code: response.status, latency_ms: Date.now() - start, error: found ? null : 'Keyword not found', json_value: null };
+    }
+
+    if (monitor.json_path && monitor.json_status_map) {
       let body: unknown;
       try {
         body = await response.json();
@@ -118,13 +164,8 @@ if (monitor.json_path && monitor.json_status_map) {
       };
     }
 
-    if (monitor.monitor_type === 'keyword') {
-      const body = await response.text();
-      const keyword = monitor.keyword ?? '';
-      const matched = keyword !== '' && body.includes(keyword);
-      return { ok: matched, degraded: false, status_code: response.status, latency_ms: Date.now() - start, error: matched ? null : 'Keyword not found', json_value: matched ? keyword : null };
-    }
-
+    // Same as above — a plain up/down check (no json_path configured) never
+    // reads the body, so it must be canceled explicitly here too.
     response.body?.cancel();
     return { ok: true, degraded: false, status_code: response.status, latency_ms: Date.now() - start, error: null, json_value: null };
   } catch (err) {

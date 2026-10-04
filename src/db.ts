@@ -9,33 +9,52 @@ export async function getMonitor(db: D1Database, id: string): Promise<Monitor | 
   return db.prepare('SELECT * FROM monitors WHERE id = ?').bind(id).first<Monitor>();
 }
 
+export async function getMonitorByPushToken(db: D1Database, token: string): Promise<Monitor | null> {
+  return db.prepare('SELECT * FROM monitors WHERE push_token = ?').bind(token).first<Monitor>();
+}
+
 export async function createMonitor(
   db: D1Database,
-m: Omit<Monitor, 'created_at' | 'active' | 'last_heartbeat_at'>
+  m: Omit<Monitor, 'created_at' | 'active' | 'last_heartbeat_at'>
 ): Promise<void> {
   await db
     .prepare(
-      'INSERT INTO monitors (id, name, monitor_type, url, interval_minutes, timeout_ms, alert_webhook, expected_status_code, retry_count, json_path, json_status_map, keyword, manual_status, grace_period_minutes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+      'INSERT INTO monitors (id, name, monitor_type, url, interval_minutes, timeout_ms, alert_webhook, expected_status_code, retry_count, json_path, json_status_map, keyword, manual_status, grace_period_minutes, push_token) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
     )
-    .bind(m.id, m.name, m.monitor_type, m.url, m.interval_minutes, m.timeout_ms, m.alert_webhook, m.expected_status_code ?? null, m.retry_count, m.json_path ?? null, m.json_status_map ?? null, m.keyword ?? null, m.manual_status ?? null, m.grace_period_minutes)
+    .bind(m.id, m.name, m.monitor_type, m.url, m.interval_minutes, m.timeout_ms, m.alert_webhook, m.expected_status_code ?? null, m.retry_count, m.json_path ?? null, m.json_status_map ?? null, m.keyword ?? null, m.manual_status ?? null, m.grace_period_minutes, m.push_token ?? null)
     .run();
 }
 
+// One D1 round-trip for the whole heartbeat: the monitor row + check row +
+// rollup upsert, plus the open-incident lookup the caller needs to decide
+// whether this heartbeat opens or resolves one.
 export async function recordPushHeartbeat(
   db: D1Database,
   monitorId: string,
   checkedAt: number,
   result: CheckResult
-): Promise<void> {
+): Promise<Incident | null> {
   const bucketStart = Math.floor(checkedAt / UPTIME_BUCKET_SECONDS) * UPTIME_BUCKET_SECONDS;
-  await db.batch([
+  const results = await db.batch([
     db.prepare('UPDATE monitors SET last_heartbeat_at = ?, last_checked_at = ? WHERE id = ?').bind(checkedAt, checkedAt, monitorId),
-    db.prepare('INSERT INTO checks (monitor_id, status_code, ok, degraded, latency_ms, error) VALUES (?, ?, ?, ?, ?, ?)').bind(monitorId, result.status_code, result.ok ? 1 : 0, result.degraded ? 1 : 0, result.latency_ms, result.error),
-    db.prepare(`INSERT INTO uptime_bucket_rollups (monitor_id, bucket_start, cnt, up_cnt, degraded_cnt)
-      VALUES (?, ?, 1, ?, ?)
-      ON CONFLICT(monitor_id, bucket_start) DO UPDATE SET
-        cnt = cnt + 1, up_cnt = up_cnt + excluded.up_cnt, degraded_cnt = degraded_cnt + excluded.degraded_cnt`).bind(monitorId, bucketStart, result.ok ? 1 : 0, result.degraded ? 1 : 0),
+    db
+      .prepare('INSERT INTO checks (monitor_id, status_code, ok, degraded, latency_ms, error, json_value) VALUES (?, ?, ?, ?, ?, ?, ?)')
+      .bind(monitorId, result.status_code, result.ok ? 1 : 0, result.degraded ? 1 : 0, result.latency_ms, result.error, result.json_value ?? null),
+    db
+      .prepare(
+        `INSERT INTO uptime_bucket_rollups (monitor_id, bucket_start, cnt, up_cnt, degraded_cnt)
+         VALUES (?, ?, 1, ?, ?)
+         ON CONFLICT(monitor_id, bucket_start) DO UPDATE SET
+           cnt = cnt + 1,
+           up_cnt = up_cnt + excluded.up_cnt,
+           degraded_cnt = degraded_cnt + excluded.degraded_cnt`
+      )
+      .bind(monitorId, bucketStart, result.ok ? 1 : 0, result.degraded ? 1 : 0),
+    db
+      .prepare('SELECT * FROM incidents WHERE monitor_id = ? AND resolved_at IS NULL ORDER BY started_at DESC LIMIT 1')
+      .bind(monitorId),
   ]);
+  return (results[3].results[0] as Incident | undefined) ?? null;
 }
 
 export async function updateMonitor(

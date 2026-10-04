@@ -12,12 +12,15 @@ CREATE TABLE IF NOT EXISTS monitors (
   json_status_map TEXT,
   keyword TEXT,
   manual_status TEXT,
-  grace_period_minutes INTEGER NOT NULL DEFAULT 1,
+  grace_period_minutes INTEGER NOT NULL DEFAULT 5,
+  push_token TEXT,
   created_at INTEGER NOT NULL DEFAULT (unixepoch()),
   active INTEGER NOT NULL DEFAULT 1,
   last_checked_at INTEGER,
   last_heartbeat_at INTEGER
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_monitors_push_token ON monitors(push_token);
 
 CREATE TABLE IF NOT EXISTS checks (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
