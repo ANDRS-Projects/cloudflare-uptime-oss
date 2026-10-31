@@ -10,12 +10,12 @@
     "db:init:remote": "wrangler d1 execute uptime-monitor --remote --file=./schema.sql"
   },
   "dependencies": {
-    "hono": "^4.13.5"
+    "hono": "^4.13.14"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20260717.1",
     "typescript": "^5.5.2",
-    "wrangler": "^4.131.0"
+    "wrangler": "^4.156.0"
   },
   "overrides": {
     "undici": "^7.29.0"
